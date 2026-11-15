@@ -1,3 +1,4 @@
+import { expectedDeploymentCommit, verifyDeploymentHealth } from "./hosted-source.ts";
 // Read-only deployed OurJam smoke test. Never uses performer/provider credentials.
 const origin = process.argv[2] ?? process.env.OUR_JAM_ORIGIN;
 if (!origin || !/^https:\/\/[^/?#]+$/.test(origin) || new URL(origin).origin !== origin) {
@@ -22,6 +23,10 @@ async function resilientFetch(url, options) {
   }
   throw lastError;
 }
+
+let expectedCommit;
+try { expectedCommit = expectedDeploymentCommit(process.env.OUR_JAM_EXPECT_COMMIT); }
+catch (error) { console.error(error.message); process.exit(2); }
 async function check(path, verify) {
   const response = await resilientFetch(origin + path, {redirect:"error", headers:{accept:"application/json"}});
   if (!response.ok) throw new Error(path + " returned HTTP " + response.status);
@@ -31,8 +36,8 @@ async function check(path, verify) {
 }
 try {
   await check("/api/health", data => {
-    if (data.status !== "ok" || data.application !== "Our Jam") throw new Error("Unexpected health response");
-    console.log("Deployed commit: " + String(data.commit ?? "unknown"));
+    const commit = verifyDeploymentHealth(data, expectedCommit);
+    console.log("Deployed commit: " + commit);
   });
   await check("/api/ready", data => {
     if (data.database !== "ready" || data.operator !== "configured")
