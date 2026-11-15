@@ -41,6 +41,7 @@ export type EventState = {
       maxWaves: number;
       minimumRoundSeconds: number;
       maxGenerations: number;
+      waveExclusions?: string[];
       releaseMode?: "boundary" | "immediate" | "review";
     };
     revision: number;
@@ -49,6 +50,7 @@ export type EventState = {
     id: string;
     voteLimit?: number;
     voteMode?: "single" | "weighted";
+    waveExclusions?: string[];
     sourceTitle: string;
     state: string;
     openedAt: string;
