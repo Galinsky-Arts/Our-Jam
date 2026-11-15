@@ -1,5 +1,36 @@
 # Deploying Our Jam
 
+## Galinsky Arts deployment (current, November 15, 2026)
+
+The repository moved to **GitHub `Galinsky-Arts/Our-Jam`**. The earlier `neophilism` Render project, Neon project `crimson-hat-87508124` and `our-jam-rehearsal.onrender.com` below are historical and are not used by this deployment.
+
+| Resource | Value |
+| --- | --- |
+| Render workspace | `tea-dbp1vrrl550s73c3dgrg` |
+| Render service | `our-jam`, `srv-dbsvo2k9v7es73bpvof0`, free web service, Docker, region virginia, branch `main`, auto-deploy on commit, health check `/api/ready` |
+| Public URL | https://our-jam-fntx.onrender.com |
+| Neon organization / project | `org-red-surf-69664431` / `our-jam` = `fragrant-recipe-39993342` (Postgres 17, aws-us-east-1), branch `br-super-mountain-bbfqp7l4`, database `neondb` |
+
+Environment variable **names** (values live only in Render; never commit them):
+
+- Set: `NODE_ENV=production`, `PORT=10000`, `PUBLIC_ORIGIN` (the URL above), `GENERATION_ENABLED=0`, `EMAIL_ENABLED=0`, `RUN_INLINE_GENERATION=0`, `RUN_MIGRATIONS`, `DATABASE_URL` (pooled, restricted `our_jam_app` login), `OPERATOR_TOKEN` and `ADMIN_TOKEN` (generated 48-character secrets; the platform admin console uses `ADMIN_TOKEN`, the performer console `OPERATOR_TOKEN`).
+- Migration-only (present only while `RUN_MIGRATIONS=1`): `DATABASE_URL_UNPOOLED` (direct `neondb_owner` connection) and `RUNTIME_ROLE_PASSWORD`.
+- Owner-supplied, not set: `MEDIA_ENDPOINT`, `MEDIA_BUCKET`, `MEDIA_REGION`, `MEDIA_ACCESS_KEY_ID`, `MEDIA_SECRET_ACCESS_KEY`, `MEDIA_HOSTS` (private S3-compatible storage for album uploads and releases); `MUREKA_API_KEY`, `STABLE_AUDIO_KEY` (generation stays at a hard $0 budget even when present); `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `EMAIL_FROM`, `EMAIL_DATA_KEY`, `EMAIL_DELIVERY_ACK` (release email); `OURJAM_GPU_GATEWAY_URL`, `OURJAM_GPU_GATEWAY_TOKEN` (comparison GPU gateway); Stripe `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` and Google OAuth / Apple credentials only after the unmerged payment and sign-in PRs land.
+
+### Least-privilege runtime role
+
+Neon API-created roles join `neon_superuser`, so the runtime login is created with SQL. On the first boot the service ran with `RUN_MIGRATIONS=1`, `DATABASE_URL_UNPOOLED` and `RUNTIME_ROLE_PASSWORD`: it applied every migration through the owner connection, then `apps/api/src/runtime-role.ts` created `our_jam_app` (LOGIN, NOINHERIT, no CREATEDB/CREATEROLE) with the `db/runtime-grants.sql` privileges and verified it is not superuser, not a `neon_superuser`/`pg_write_all_data` member, cannot CREATE in the schema, cannot write `schema_migrations` and owns no tables. `DATABASE_URL` was then switched to the pooled `our_jam_app` connection; later deploys reached **live** through the `/api/ready` health check, which reads `schema_migrations` through that login.
+
+### Applying a future migration
+
+New migrations are not applied while `RUN_MIGRATIONS=0`. Before merging a PR that adds one: in Render, set `RUN_MIGRATIONS=1`, add `DATABASE_URL_UNPOOLED` (the direct owner connection string from the Neon console) and deploy. Startup migrates, re-grants `our_jam_app` on new tables, then serves. Afterwards set `RUN_MIGRATIONS=0` and delete `DATABASE_URL_UNPOOLED` again. Migrations must stay additive so the previous instance keeps working during the rolling deploy.
+
+### Verification available here
+
+The build sandbox cannot reach `*.onrender.com` or Postgres directly. Evidence comes from the Render API (deploy status and application logs: `runtimeRole` provisioning, `status: listening` on port 10000, `generation: not_configured`) and the external **Hosted rehearsal readiness** workflow, which now defaults to this URL. It checks `/api/health`, `/api/ready`, the performer page, unauthenticated 401s and cross-origin 403s. Media checks default off (`OUR_JAM_REQUIRE_MEDIA=0`) until storage is configured. Real phones, owner uploads, provider generation and email remain unverified.
+
+## Earlier deployment record (historical)
+
 The intended grouping target is Render project `prj-db5btotckfvc739m1ck0` and Neon project `crimson-hat-87508124`. Production database branch: `br-aged-sea-b55fzq0v`. Rehearsal branch: `br-blue-unit-b5rk1hit` (`dev-our-jam-foundation`). The exact current external evidence is in [resource reconciliation](rehearsal-resource-state.md).
 
 ## Current external state

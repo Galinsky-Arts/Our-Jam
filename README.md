@@ -4,6 +4,8 @@ Live music made together. Fans contribute **Sound Waves**, move five votes among
 
 ## Hosted rehearsal: run the existing free test server
 
+> **Current host (November 15, 2026):** https://our-jam-fntx.onrender.com, a free Render service on Galinsky Arts' own Neon database. Open `/performer` with the `OPERATOR_TOKEN` from the service's Render environment settings; the platform admin console uses `ADMIN_TOKEN`. Private media storage is **not configured** there yet, so album upload/playback needs the `MEDIA_*` variables first. The paragraph below describes the earlier `neophilism` rehearsal site and is historical.
+
 The dedicated HTTPS test site **https://our-jam-rehearsal.onrender.com** uses the isolated Neon rehearsal database and has passed live S3 diagnostic PUT/HEAD/GET/DELETE with clean deletion, external readiness checks and negative hosted authorization/Origin checks. Open `/performer` and use the `OPERATOR_TOKEN` from this Render service's private Environment settings (never paste it into chat or commit it). See **[the real-phone hosted rehearsal runbook](docs/hosted-first-rehearsal.md)** to create an event, upload your own songs, open the public monitor and admit real iPhones/Android browsers. No app-store account is required for browser participation. Full owner-file and venue acceptance is still pending and billable AI generation remains off.
 
 ## Run the real zero-budget rehearsal
@@ -43,7 +45,7 @@ After all application checks, audit, production builds and Docker pass, CI prese
 
 ## Project resources
 
-GitHub `neophilism/Our-Jam`; Render project `prj-db5btotckfvc739m1ck0`; Neon project `crimson-hat-87508124`; production branch `br-aged-sea-b55fzq0v`; isolated rehearsal branch `br-blue-unit-b5rk1hit`.
+GitHub `Galinsky-Arts/Our-Jam`; Render workspace `tea-dbp1vrrl550s73c3dgrg`, free service `our-jam` (`srv-dbsvo2k9v7es73bpvof0`) at https://our-jam-fntx.onrender.com; Neon project `our-jam` (`fragrant-recipe-39993342`, org `org-red-surf-69664431`). See [deployment](docs/deployment.md). Earlier `neophilism` resources (Render `prj-db5btotckfvc739m1ck0`, Neon `crimson-hat-87508124`, `our-jam-rehearsal.onrender.com`) are historical.
 
 Never reuse unrelated credentials/services or commit secret values. Artist core prompts and unpublished recordings stay private. The server-authorized architecture is not an end-to-end-encryption or independent security certification claim.
 

@@ -14,7 +14,7 @@
       "verification": "Check documentation links and clean bootstrap; record Engine Room access or pending sync.",
       "rollout": "Documentation only; no deployment or new spending.",
       "status": "implemented",
-      "pr_url": "https://github.com/neophilism/Our-Jam/pull/1",
+      "pr_url": "https://github.com/Galinsky-Arts/Our-Jam/pull/1",
       "verified_sha": "416ec4ecf0f4881f6718efe692d1fbcc9432663e"
     },
     {
@@ -44,7 +44,7 @@
       "verification": "Migration integration, schema compatibility and cross-tenant foreign-key negative tests.",
       "rollout": "Use additive migrations; rollback app code without dropping collected data.",
       "status": "in_progress",
-      "pr_url": "https://github.com/neophilism/Our-Jam/pull/9",
+      "pr_url": "https://github.com/Galinsky-Arts/Our-Jam/pull/9",
       "verified_sha": "e703ba8cbd324cbfd93dee674ef730bc02f20449"
     },
     {
@@ -374,7 +374,7 @@
       "acceptance": "Changing votes cannot farm points; public anonymity propagates; failed generations do not count as released contributions.",
       "verification": "Ledger recomputation, timezone boundaries, profile sanitization and hide-track tests.",
       "rollout": "Rebuildable aggregates and independent leaderboard visibility switch.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -433,7 +433,7 @@
       "acceptance": "The declared attendance cap, offline playback, generation failure and recording recovery pass on the actual setup.",
       "verification": "At least a full set rehearsal; load at twice planned attendance, restore and worker/API restart exercises.",
       "rollout": "Admission cap and listen-only degradation; record exact limitations.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -465,7 +465,7 @@
       "acceptance": "Scene meets the desired living 3D aesthetic without losing readability or stable controls.",
       "verification": "Visual review on show display and representative phones; long thermal/performance session.",
       "rollout": "Ship graded presets and visual feature flags.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
