@@ -1,13 +1,13 @@
-# Attach this service to the EXISTING project prj-db5btotckfvc739m1ck0.
-# Project/environment names must be verified in Render before Blueprint sync.
-# A flat Blueprint intentionally does not invent a second project by name.
+# Galinsky Arts free Render web service (workspace tea-dbp1vrrl550s73c3dgrg).
+# Secrets (DATABASE_URL, DATABASE_URL_UNPOOLED, OPERATOR_TOKEN, ADMIN_TOKEN) live
+# only in Render's environment settings, never in this file.
 services:
   - type: web
     name: our-jam
     runtime: docker
-    repo: https://github.com/neophilism/Our-Jam
+    repo: https://github.com/Galinsky-Arts/Our-Jam
     branch: main
-    region: ohio
+    region: virginia
     plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
@@ -18,9 +18,15 @@ services:
         value: production
       - key: PUBLIC_ORIGIN
         sync: false
+      - key: PORT
+        value: "10000"
       - key: DATABASE_URL
         sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
       - key: OPERATOR_TOKEN
+        generateValue: true
+      - key: ADMIN_TOKEN
         generateValue: true
       - key: GENERATION_ENABLED
         value: "0"
