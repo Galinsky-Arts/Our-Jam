@@ -236,7 +236,7 @@ export async function ranked(
 ): Promise<RankedWave[]> {
   const rows = (
     await tx.query(
-      `SELECT w.*,p.name,p.anonymous,p.avatar_seed,
+      `SELECT w.*,p.name,p.anonymous,p.avatar_seed,p.avatar_sha,
     COALESCE(sum(a.points),0)::integer votes,count(a.participant_id)::integer supporters,
     COALESCE(sum(a.points) FILTER(WHERE a.participant_id=$2),0)::integer mine,
     COALESCE(sum(a.points) FILTER(WHERE a.participant_id<>w.author_id),0)::integer other_points
@@ -256,7 +256,8 @@ export async function ranked(
       createdAt: new Date(w.created_at).toISOString(),
       mine: w.mine,
       name: w.anonymous ? "Anonymous" : w.name,
-      avatarSeed: w.avatar_seed,
+      avatarSeed: w.anonymous ? "anonymous" : w.avatar_seed,
+      avatarUrl: !w.anonymous && w.avatar_sha ? "/api/avatars/" + w.avatar_sha : null,
       otherPoints: w.other_points,
     })),
     seed,
@@ -829,3 +830,4 @@ export async function snapshot(
     isOperator,
   };
 }
+
