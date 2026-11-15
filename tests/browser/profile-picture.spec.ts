@@ -35,9 +35,10 @@ test("a listener explicitly publishes a normalized photo, hides it with Anonymou
   await page
     .getByRole("button", { name: "Save profile picture", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText(
-    "Public profile picture saved.",
-  );
+  // The event page also has an admission-rule status; target this message.
+  await expect(
+    page.getByRole("status").filter({ hasText: "Public profile picture saved." }),
+  ).toBeVisible();
   const session = await (await page.request.get("/api/session")).json();
   const imagePath = "/api/avatars/" + session.profile.avatar_sha;
   const image = await page.request.get(imagePath);
@@ -53,7 +54,8 @@ test("a listener explicitly publishes a normalized photo, hides it with Anonymou
   await page
     .getByRole("button", { name: "Use my musical avatar", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText(
-    "Profile picture removed.",
-  );
+  // The event page also has an admission-rule status; target this message.
+  await expect(
+    page.getByRole("status").filter({ hasText: "Profile picture removed." }),
+  ).toBeVisible();
 });
