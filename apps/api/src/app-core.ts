@@ -49,7 +49,7 @@ import {
 } from "./show-setup.js";
 import { leaderboard, releaseCredits } from "./recognition.js";
 import Fastify from "fastify";
-import { SnapshotReads, RoomStreams } from "./live-traffic.js";
+import { SnapshotReads, RoomStreams, pollRoomChanges } from "./live-traffic.js";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -75,6 +75,7 @@ import {
   profileInput,
   releaseInput,
   waveInput,
+  waveEditInput,
 } from "../../../packages/contracts/src/index.js";
 import {
   advance,
@@ -84,6 +85,7 @@ import {
   ownedEvent,
   snapshot,
   submitWave,
+  editWave,
 } from "./service.js";
 
 import { claimPlayback, heartbeat, pausePlayback } from "./playback.js";
@@ -273,11 +275,11 @@ export async function createApp(db: Database, config: AppConfig) {
   app.get("/api/ready", async () => {
     const rows = (
       await db.query(
-        "SELECT name FROM schema_migrations WHERE name IN ('001_core.sql','002_playback.sql','003_generation.sql','004_release_email.sql','005_artist_profiles.sql','006_release_controls.sql','007_audience_admission.sql','008_profile_recovery.sql','009_platform_vote_policy.sql')",
+        "SELECT name FROM schema_migrations WHERE name IN ('001_core.sql','002_playback.sql','003_generation.sql','004_release_email.sql','005_artist_profiles.sql','006_release_controls.sql','007_audience_admission.sql','008_profile_recovery.sql','009_platform_vote_policy.sql','023_room_change_sequence.sql')",
       )
     ).rows;
     requireThat(
-      rows.length === 9,
+      rows.length === 10,
       "schema_not_ready",
       "Required database migrations have not been applied.",
       503,
@@ -753,6 +755,12 @@ export async function createApp(db: Database, config: AppConfig) {
       waveInput.parse(req.body),
     );
   });
+  app.patch("/api/rounds/:roundId/waves/:waveId", async (req) => {
+    const s = await session(req, "guest");
+    const params = req.params as { roundId: string; waveId: string };
+    return editWave(db, { participantId: s.participant_id },
+      id.parse(params.roundId), id.parse(params.waveId), waveEditInput.parse(req.body));
+  });
   app.post("/api/operator/events/:id/playback/claim", async (req) => {
     const op = await session(req, "operator");
     const body = z
@@ -907,11 +915,17 @@ export async function createApp(db: Database, config: AppConfig) {
         ])
       ).rows[0];
       requireThat(
-        r.state === "open",
+        r.state === "open" || r.state === "paused",
         "round_closed",
         "Closed snapshots cannot be edited.",
         409,
       );
+      const wave = (await tx.query(
+        "SELECT moderated FROM sound_waves WHERE id=$1 AND round_id=$2 FOR UPDATE",
+        [waveId, found.round_id],
+      )).rows[0];
+      requireThat(wave, "not_found", "Wave not found.", 404);
+      if (wave.moderated) return { ok: true, replay: true };
       await tx.query(
         "UPDATE ballots SET revision=revision+1 WHERE round_id=$1 AND participant_id IN (SELECT participant_id FROM allocations WHERE wave_id=$2)",
         [found.round_id, waveId],
@@ -1220,21 +1234,17 @@ export async function createApp(db: Database, config: AppConfig) {
     await session(req, "operator");
     return { snapshots: snapshotReads.stats, streams: roomStreams.stats };
   });
-  let lastSequence = 0;
+  const seenRoomChanges = new Map<string, string>();
   let polling = false;
   const poll = setInterval(async () => {
-    if (polling || !roomStreams.stats.connections) return;
+    if (polling) return;
+    if (!roomStreams.stats.connections) {
+      seenRoomChanges.clear();
+      return;
+    }
     polling = true;
     try {
-      const entries = (
-        await db.query(
-          "SELECT sequence,event_id FROM event_log WHERE sequence>$1 ORDER BY sequence LIMIT 2000",
-          [lastSequence],
-        )
-      ).rows;
-      const affected = new Set(entries.map((e) => e.event_id));
-      for (const entry of entries) lastSequence = Number(entry.sequence);
-      for (const eventId of affected) roomStreams.update(eventId);
+      await pollRoomChanges(db, roomStreams, seenRoomChanges);
     } catch {
       roomStreams.reconnect();
     } finally {
@@ -1284,3 +1294,4 @@ export async function createApp(db: Database, config: AppConfig) {
   }
   return app;
 }
+
