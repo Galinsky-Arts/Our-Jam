@@ -10,6 +10,7 @@ import { createApp } from "./app.js";
 import { configuredEmail } from "./email-config.js";
 import { verifyStartupMedia } from "./media-readiness.js";
 import { emailTick } from "./email.js";
+import { provisionRuntimeRole } from "./runtime-role.js";
 const production = process.env.NODE_ENV === "production";
 const url = process.env.DATABASE_URL;
 if (!url)
@@ -25,6 +26,11 @@ if (process.env.RUN_MIGRATIONS === "1") {
   const migrationDb = postgres(direct);
   try {
     await migrate(migrationDb);
+    // Opt-in least-privilege login; existing our_jam_app is re-granted new tables.
+    const runtimeRole = await provisionRuntimeRole(migrationDb, {
+      password: process.env.RUNTIME_ROLE_PASSWORD || undefined,
+    });
+    console.log(JSON.stringify({ application: "Our Jam", runtimeRole }));
   } finally {
     await migrationDb.close();
   }
