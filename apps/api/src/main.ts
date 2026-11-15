@@ -10,6 +10,7 @@ import { createApp } from "./app.js";
 import { configuredEmail } from "./email-config.js";
 import { verifyStartupMedia } from "./media-readiness.js";
 import { emailTick } from "./email.js";
+import { provisionRuntimeRole } from "./runtime-role.js";
 const production = process.env.NODE_ENV === "production";
 const url = process.env.DATABASE_URL;
 if (!url)
@@ -25,6 +26,11 @@ if (process.env.RUN_MIGRATIONS === "1") {
   const migrationDb = postgres(direct);
   try {
     await migrate(migrationDb);
+    // Opt-in least-privilege login; existing our_jam_app is re-granted new tables.
+    const runtimeRole = await provisionRuntimeRole(migrationDb, {
+      password: process.env.RUNTIME_ROLE_PASSWORD || undefined,
+    });
+    console.log(JSON.stringify({ application: "Our Jam", runtimeRole }));
   } finally {
     await migrationDb.close();
   }
@@ -44,13 +50,18 @@ const app = await createApp(db, {
   mediaVerified: mediaStatus === "verified",
   email,
 });
-await app.listen({ port: Number(process.env.PORT ?? 3001), host: "0.0.0.0" });
+// Render's public Docker service exposes 10000; match it even if PORT is absent.
+const listenPort = Number(process.env.PORT ?? (production ? 10000 : 3001));
+if (!Number.isInteger(listenPort) || listenPort < 1 || listenPort > 65535)
+  throw new Error("PORT must be a valid listening port.");
+await app.listen({ port: listenPort, host: "0.0.0.0" });
 console.log(
   JSON.stringify({
     application: "Our Jam",
     status: "listening",
     generation: generation ? "configured" : "not_configured",
     media: mediaStatus,
+    port: listenPort,
   }),
 );
 let ticking = false;
