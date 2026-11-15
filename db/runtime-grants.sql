@@ -1,5 +1,8 @@
 -- Apply as the migration owner on the explicitly selected Our Jam branch.
--- Create our_jam_app separately with SQL and a generated private password.
+-- Create our_jam_app separately with SQL and a generated private password, or
+-- start once with RUN_MIGRATIONS=1 and RUNTIME_ROLE_PASSWORD set: the app then
+-- creates the role and applies these grants (apps/api/src/runtime-role.ts) and
+-- re-applies them on every later RUN_MIGRATIONS=1 start.
 -- Neon API-created roles inherit administrative privileges; do not use one as the runtime login.
 GRANT CONNECT ON DATABASE neondb TO our_jam_app;
 GRANT USAGE ON SCHEMA public TO our_jam_app;
