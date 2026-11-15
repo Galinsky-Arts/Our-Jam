@@ -17,10 +17,6 @@ export default defineConfig({
           includeDependenciesRecursively: false,
           groups: [
             { name: "three-vendor", test: /node_modules[\\/]three[\\/]/ },
-            {
-              name: "r3f-vendor",
-              test: /node_modules[\\/](@react-three|react-reconciler|its-fine|zustand|suspend-react)[\\/]/,
-            },
           ],
         },
       },
