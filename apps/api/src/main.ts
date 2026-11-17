@@ -13,6 +13,7 @@ import { configuredEmail } from "./email-config.js";
 import { verifyStartupMedia } from "./media-readiness.js";
 import { emailTick } from "./email.js";
 import { configuredWebPush, pushTick } from "./web-push.js";
+import { databaseDigest, compareDigests } from "./recovery-digest.js";
 import { provisionRuntimeRole } from "./runtime-role.js";
 const production = process.env.NODE_ENV === "production";
 const url = process.env.DATABASE_URL;
@@ -74,6 +75,22 @@ console.log(
     port: listenPort,
   }),
 );
+// OJ-041 restore drill: when an operator points DR_VERIFY_DATABASE_URL at a
+// temporary restored Neon branch, compare it read-only with this database and
+// log counts/match flags only (never row contents). Never blocks serving.
+if (process.env.DR_VERIFY_DATABASE_URL) {
+  void (async () => {
+    const restored = postgres(process.env.DR_VERIFY_DATABASE_URL!);
+    try {
+      const [primary, copy] = await Promise.all([databaseDigest(db), databaseDigest(restored)]);
+      console.log(JSON.stringify({ event: "dr_verification", ...compareDigests(primary, copy) }));
+    } catch (error) {
+      console.error(JSON.stringify({ event: "dr_verification_failed", code: (error as { code?: string }).code ?? "unexpected" }));
+    } finally {
+      await restored.close();
+    }
+  })();
+}
 let ticking = false;
 const roundTimer = setInterval(async () => {
   if (ticking) return;
