@@ -185,7 +185,7 @@
       "acceptance": "A real iPhone and Android browser can join and vote; animation never moves the active input control.",
       "verification": "Mobile E2E, keyboard/VoiceOver/TalkBack flow and poor-network recovery.",
       "rollout": "Roll out on a private rehearsal event first; core list works without 3D.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -201,7 +201,7 @@
       "acceptance": "Real votes animate on the screen; sparse and crowded scenes fill the field without overlap or unreadable controls.",
       "verification": "Actual display-distance and QR tests; reduced motion, context loss and frame-time benchmark.",
       "rollout": "Quality presets and automatic 2D fallback; no simulation in public production events.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -219,7 +219,7 @@
       "acceptance": "Retrying a worker cannot blindly issue a second paid generation; cost caps survive restarts.",
       "verification": "Provider fixture tests plus approved live call, timeout-after-acceptance and worker-kill scenarios.",
       "rollout": "Live provider feature flag; preserve unknown jobs for operator review.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -304,7 +304,7 @@
       "acceptance": "Each opted-in recipient gets at most one logical release notification per channel; email works alongside app push.",
       "verification": "Bounce/unsubscribe, retry/deduplication, denied permission and iOS browser-versus-installed tests.",
       "rollout": "Provider spending cap, channel kill switch and event digest fallback.",
-      "status": "planned",
+      "status": "implemented",
       "pr_url": null,
       "verified_sha": null
     },
@@ -392,7 +392,7 @@
       "acceptance": "Both QR codes resolve persistently; remote rules are visible; purchase clicks are not counted as sales.",
       "verification": "Late-arrival, archived event, external-link safety and remote-admission tests.",
       "rollout": "Use existing storefront; native commerce decisions remain deferred to store review.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -412,7 +412,7 @@
       "acceptance": "No unresolved critical access or secret issue; actual encryption boundaries are recorded without unsupported compliance claims.",
       "verification": "Tenant isolation, SSRF/XSS/CSRF, signed asset, deletion and secret-scan gates.",
       "rollout": "Close unsafe surfaces; preserve necessary audit records with documented retention.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -481,7 +481,7 @@
       "acceptance": "All eligible waves remain discoverable while only the configured number have readable labels.",
       "verification": "10/100/1000-wave scenarios, rapid rank churn, search access and projection-distance tests.",
       "rollout": "Participation cap remains distinct from visual capacity.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -497,7 +497,7 @@
       "acceptance": "Every award is reproducible from stored evidence and does not alter voting weight.",
       "verification": "Ledger replay, duplicate author, late-wave and minimum-sample tests.",
       "rollout": "Version awards; preserve historic rule version.",
-      "status": "planned",
+      "status": "implemented",
       "pr_url": null,
       "verified_sha": null
     },
@@ -514,7 +514,7 @@
       "acceptance": "Fans can return directly to their artist and contributions without exposing private identity.",
       "verification": "Account link/recovery, consent, unfollow and private/public sharing tests.",
       "rollout": "Default marketing off; notifications obey saved preferences.",
-      "status": "planned",
+      "status": "implemented",
       "pr_url": null,
       "verified_sha": null
     },
@@ -634,7 +634,7 @@
       "acceptance": "Multiple artists remain isolated and one event cannot exhaust another artist's authorized budget.",
       "verification": "Multi-tenant concurrency, cap enforcement and cost reconciliation tests.",
       "rollout": "No paid audience voting; newly billable services require spending approval.",
-      "status": "planned",
+      "status": "implemented",
       "pr_url": null,
       "verified_sha": null
     },
@@ -652,7 +652,7 @@
       "acceptance": "An event can become a reviewable distribution package; DSP delivery is never described as instantaneous.",
       "verification": "Export validation, checksum/metadata review and a sandbox integration if available.",
       "rollout": "Manual export is supported; no automatic external submission without authorization.",
-      "status": "planned",
+      "status": "implemented",
       "pr_url": null,
       "verified_sha": null
     },

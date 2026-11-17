@@ -12,7 +12,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 1,
-  "observedAt": "2026-11-15T19:17:26.000Z",
+  "observedAt": "2026-11-17T02:53:33.000Z",
   "units": [
     {
       "id": "OJ-001",
@@ -66,10 +66,13 @@
       "origin": "original",
       "prs": [],
       "status": "in_progress",
-      "implementationNotes": "Web/native guest identities, private recovery keys and origin-scoped Keychain credentials exist. PR25's native-to-API-to-stage test passed. Multi-artist provisioning, staff roles, display pairing and stronger artist authentication remain open.",
+      "implementationNotes": "Web/native guest identities, private recovery keys and origin-scoped Keychain credentials exist. PR25's native-to-API-to-stage test passed. Multi-artist provisioning, staff roles, display pairing and stronger artist authentication remain open. PR110 (merged and deployed 2026-11-17, commit 13e9f2f): ported the October Google/email sign-in bridge (Neon Auth, one-use native handoff) into main; OFF until IDENTITY_ENABLED=1 and NEON_AUTH_BASE_URL with Google configured in Neon Auth. No real Google consent or email delivery has been accepted.",
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-006",
@@ -135,12 +138,13 @@
       "origin": "original",
       "prs": [],
       "status": "in_progress",
-      "implementationNotes": "Event-log streaming and snapshot fallback reject older responses and pause stale/offline votes. Snapshot bounds, identity isolation, shared-network budgets and slow-socket disconnection exist. Merged PR28 verifies stream shutdown while ordinary requests drain. Multi-instance fanout and deployed venue/load evidence remain open. PR101 merged: durable per-event change sequence (migration 023) with resumable subscriptions and snapshot recovery after gaps.",
+      "implementationNotes": "Event-log streaming and snapshot fallback reject older responses and pause stale/offline votes. Snapshot bounds, identity isolation, shared-network budgets and slow-socket disconnection exist. Merged PR28 verifies stream shutdown while ordinary requests drain. Multi-instance fanout and deployed venue/load evidence remain open. PR101 merged: durable per-event change sequence (migration 023) with resumable subscriptions and snapshot recovery after gaps. PR110 (merged and deployed 2026-11-17, commit 13e9f2f): clients poll the authoritative snapshot every 4 s while the live stream is disconnected. Deployed venue/network-loss and load evidence remain open.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": [],
       "contributingPrs": [
-        101
+        101,
+        110
       ]
     },
     {
@@ -224,11 +228,14 @@
       "prs": [
         13
       ],
-      "status": "in_progress",
-      "implementationNotes": "Verified opt-in email, encrypted contacts, bounded outbox, unsubscribe, signed suppression and foreground notices exist behind disabled delivery. The production email schema is now initialized with delivery disabled. Real sender delivery, native/web push and large-crowd throughput remain open.",
+      "status": "implemented",
+      "implementationNotes": "Verified opt-in email, encrypted contacts, bounded outbox, unsubscribe, signed suppression and foreground notices exist behind disabled delivery. The production email schema is now initialized with delivery disabled. Real sender delivery, native/web push and large-crowd throughput remain open. PR110 (merged and deployed 2026-11-17, commit 13e9f2f): RFC 8291/8292 browser push (node:crypto only) with per-release fanout, one notification per subscription, retries, gone-endpoint pruning and a push-service allowlist; enabled on the hosted service with a generated VAPID key pair. Email delivery stays OFF until a Resend sender is supplied. Not yet observed on a physical phone or a real push service.",
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-020",
@@ -291,10 +298,13 @@
         17
       ],
       "status": "in_progress",
-      "implementationNotes": "Profiles, archives and liked tracks include remote-voting policy, listener access, room-code admission and bounded capacity. SwiftUI admission exists; core open-room native participation passed. Restricted-room native UI acceptance, Expo parity, physical devices and venue-load evidence remain open.",
+      "implementationNotes": "Profiles, archives and liked tracks include remote-voting policy, listener access, room-code admission and bounded capacity. SwiftUI admission exists; core open-room native participation passed. Restricted-room native UI acceptance, Expo parity, physical devices and venue-load evidence remain open. PR110 (merged and deployed 2026-11-17, commit 13e9f2f): event payments (Stripe Checkout, webhook entitlement, refunds) and sponsor videos ported from the development branch; OFF until COMMERCE_ENABLED=1 with STRIPE_* keys. No real payment accepted.",
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-025",
@@ -303,7 +313,12 @@
       "prs": [],
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "status": "in_progress",
+      "implementationNotes": "PR110 (merged and deployed 2026-11-17, commit 13e9f2f): personal data export and profile erasure (anonymized credits, contact/session/follow/receipt/push removal, erasure audit) with HTTP/session/Origin tests. Formal trust-boundary evidence and independent review remain open.",
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-026",
@@ -353,7 +368,12 @@
       "prs": [],
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "status": "in_progress",
+      "implementationNotes": "PR110 (merged and deployed 2026-11-17, commit 13e9f2f): searchable, rank-stable, paged Sound Wave list for dense rounds alongside the existing screen overflow. 100/1000-wave and projection-distance tests remain open.",
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-030",
@@ -362,18 +382,26 @@
       "prs": [],
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "status": "implemented",
+      "implementationNotes": "PR110 (merged and deployed 2026-11-17, commit 13e9f2f): awards-v1 (crowd pick, early spark, late breakout, most supported) recomputed from frozen round snapshots with a minimum sample and per-round averages; never changes votes. Unit-tested ledger replay.",
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-031",
       "title": "Fan collections following and return journeys",
       "origin": "original",
       "prs": [],
-      "status": "in_progress",
-      "implementationNotes": "Web/API recoverable profiles, follows and private release feeds are implemented. PR30 now passed actual native profile editing, following, stable recovery-key disclosure through snapshot refresh, explicit save and profile restoration; it is merged. Earlier native failures were corrected, not waived. Verified accounts and richer engagement remain open.",
+      "status": "implemented",
+      "implementationNotes": "Web/API recoverable profiles, follows and private release feeds are implemented. PR30 now passed actual native profile editing, following, stable recovery-key disclosure through snapshot refresh, explicit save and profile restoration; it is merged. Earlier native failures were corrected, not waived. Verified accounts and richer engagement remain open. PR110 (merged and deployed 2026-11-17, commit 13e9f2f): my contributions with outcomes, revocable shareable receipts that preserve anonymity, joined-show collections and consented in-app reminders for followed artists' shows. Real cross-device usage not yet observed.",
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-032",
@@ -440,7 +468,12 @@
       "prs": [],
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "status": "implemented",
+      "implementationNotes": "PR110 (merged and deployed 2026-11-17, commit 13e9f2f): platform-admin artist onboarding independent of payments (hashed keys, rotation, pause), event/live/monthly-generation quotas enforced server-side, usage statements, admin audit and a configuration overview naming the settings for every off feature. Billing remains optional/off.",
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-039",
@@ -449,7 +482,12 @@
       "prs": [],
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "status": "implemented",
+      "implementationNotes": "PR110 (merged and deployed 2026-11-17, commit 13e9f2f): sequenced, checksummed album manifest and formula-safe credits CSV with AI disclosure and manual distributor handoff; core prompts excluded. No distributor API is authorized, so none is called.",
+      "contributingPrs": [
+        110
+      ]
     },
     {
       "id": "OJ-040",
@@ -742,6 +780,21 @@
     }
   ],
   "pullRequests": [
+    {
+      "id": 5349553012,
+      "number": 110,
+      "title": "V1 web completion: commerce/sign-in port (off), fan journeys, recognition, privacy, admin quotas, exports, web push",
+      "url": "https://github.com/Galinsky-Arts/Our-Jam/pull/110",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-17T02:48:25.000Z",
+      "updatedAt": "2026-11-17T02:53:33.000Z",
+      "closedAt": "2026-11-17T02:53:32.000Z",
+      "mergedAt": "2026-11-17T02:53:32.000Z",
+      "headSha": "2237b75e712b2913b669b0e698f4af28cac18278",
+      "baseRef": "main",
+      "mergeCommitSha": "13e9f2fb03f7ee0ca05907037b65614f2df9b0bf"
+    },
     {
       "id": 5325930602,
       "number": 108,

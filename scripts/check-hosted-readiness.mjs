@@ -88,6 +88,25 @@ try {
     if (response.status !== 403) throw new Error("Cross-origin mutation was not rejected: " + path);
     console.log(path + " cross-origin denied: PASS");
   }
+  // V1 fan/admin surfaces: private ones deny anonymous callers, public receipt
+  // lookups do not leak, and feature switches report state without secrets.
+  for (const path of ["/api/admin/configuration", "/api/admin/artists", "/api/me/contributions", "/api/account/export"]) {
+    const response = await resilientFetch(origin + path, { redirect: "error" });
+    if (response.status !== 401) throw new Error("Private V1 route did not reject an anonymous request: " + path);
+    console.log(path + " unauthenticated: PASS");
+  }
+  const receipt = await resilientFetch(origin + "/api/receipts/AAAAAAAAAAAAAAAAAAAAAA", { redirect: "error" });
+  if (receipt.status !== 404) throw new Error("Unknown receipt did not return 404");
+  console.log("/api/receipts unknown: PASS");
+  await check("/api/push/config", (data) => {
+    if (typeof data.enabled !== "boolean") throw new Error("Push configuration is invalid");
+    if (data.enabled && !/^[A-Za-z0-9_-]{86,88}$/.test(data.publicKey ?? ""))
+      throw new Error("Push is enabled without a valid public VAPID key");
+    console.log("Browser push notifications: " + (data.enabled ? "ENABLED" : "OFF"));
+  });
+  await check("/api/identity/config", (data) => {
+    console.log("Google/email sign-in: " + (data.enabled ? "ENABLED" : "OFF"));
+  });
 } catch (error) {
   console.error("Hosted rehearsal smoke FAIL:", error instanceof Error ? error.message : "unknown");
   process.exitCode = 1;
