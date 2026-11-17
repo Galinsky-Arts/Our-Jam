@@ -949,3 +949,63 @@ export async function snapshot(
   };
 }
 
+
+/**
+ * OJ-040: the per-listener part of an audience snapshot. The room-wide part is
+ * shared between listeners (see RoomSnapshotCache); only these values differ.
+ */
+export async function participantOverlay(
+  db: Sql,
+  eventId: string,
+  roundId: string | null,
+  participantId: string,
+) {
+  const row = (
+    await db.query(
+      `SELECT
+        (SELECT revision FROM ballots WHERE round_id=$2 AND participant_id=$3) revision,
+        (SELECT json_object_agg(wave_id,points) FROM allocations WHERE round_id=$2 AND participant_id=$3) mine,
+        (SELECT json_object_agg(x.release_id,x.value) FROM reactions x JOIN releases r ON r.id=x.release_id
+          WHERE r.event_id=$1 AND x.participant_id=$3) reactions,
+        (SELECT venue_admitted FROM event_members WHERE event_id=$1 AND participant_id=$3) venue`,
+      [eventId, roundId, participantId],
+    )
+  ).rows[0];
+  return {
+    revision: (row.revision as number | null) ?? 0,
+    mine: (row.mine ?? {}) as Record<string, number>,
+    reactions: (row.reactions ?? {}) as Record<string, number>,
+    member: row.venue === null || row.venue === undefined ? undefined : { venue_admitted: Boolean(row.venue) },
+  };
+}
+
+/** Applies a participant overlay to a shared (anonymous) room snapshot. */
+export function personalizeSnapshot(
+  base: Awaited<ReturnType<typeof snapshot>>,
+  overlay: Awaited<ReturnType<typeof participantOverlay>>,
+  participantId: string,
+) {
+  const ownId = digest(base.event.id + ":" + participantId);
+  const restricted = base.admission.mode === "room_code";
+  const joined = Boolean(overlay.member);
+  return {
+    ...base,
+    round: base.round
+      ? {
+          ...base.round,
+          revision: overlay.revision,
+          waves: base.round.waves.map((w: any) => ({
+            ...w,
+            mine: overlay.mine[w.id] ?? 0,
+            own: w.authorId === ownId,
+          })),
+        }
+      : null,
+    releases: base.releases.map((r: any) => ({
+      ...r,
+      reaction: overlay.reactions[r.id] ?? null,
+    })),
+    joined,
+    canContribute: joined && (!restricted || Boolean(overlay.member?.venue_admitted)),
+  };
+}

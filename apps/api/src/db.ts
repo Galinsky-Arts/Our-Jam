@@ -28,7 +28,8 @@ export function postgres(url: string): Database {
     parsed.searchParams.delete(key);
   const pool = new pg.Pool({
     connectionString: parsed.toString(),
-    max: 8,
+    // OJ-040: configurable; Neon's pooled endpoint accepts far more clients.
+    max: Math.max(2, Math.min(50, Number(process.env.DATABASE_POOL_MAX) || 8)),
     connectionTimeoutMillis: 10000,
     idleTimeoutMillis: 30000,
     ssl: local ? false : { rejectUnauthorized: true, minVersion: "TLSv1.3" },

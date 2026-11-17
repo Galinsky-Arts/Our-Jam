@@ -54,7 +54,7 @@ import {
 } from "./show-setup.js";
 import { leaderboard, releaseCredits } from "./recognition.js";
 import Fastify from "fastify";
-import { SnapshotReads, RoomStreams, pollRoomChanges } from "./live-traffic.js";
+import { SnapshotReads, RoomStreams, RoomSnapshotCache, pollRoomChanges } from "./live-traffic.js";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -89,6 +89,8 @@ import {
   logEvent,
   ownedEvent,
   snapshot,
+  participantOverlay,
+  personalizeSnapshot,
   submitWave,
   editWave,
 } from "./service.js";
@@ -111,6 +113,10 @@ export type AppConfig = {
   mediaStore?: MediaStore;
   mediaVerified?: boolean;
   email?: EmailConfig;
+  /** Guest-session creations per minute per network address (default 1500). */
+  joinsPerMinute?: number;
+  /** Unauthenticated reads per minute per network address (default 60000). */
+  anonymousReadsPerMinute?: number;
 };
 // Native guest credentials are deliberately distinguishable from browser and
 // performer sessions. Native requests still supply the configured Origin.
@@ -169,9 +175,15 @@ export async function createApp(db: Database, config: AppConfig) {
     }
     return result;
   }
+  const anonymousReadsPerMinute = Math.max(
+    600,
+    Math.min(600000, config.anonymousReadsPerMinute ?? (Number(process.env.ANON_READS_PER_MINUTE) || 60000)),
+  );
   await app.register(rateLimit, {
     // 100 anonymous listeners at one update/second, plus initial page reads.
-    max: (_req, key) => (key.startsWith("read:ip:") ? 7200 : 180),
+    // Anonymous readers behind one venue NAT share an address; their reads
+    // are served from the shared room snapshot, so the budget is venue-sized.
+    max: (_req, key) => (key.startsWith("read:ip:") ? anonymousReadsPerMinute : 180),
     timeWindow: "1 minute",
     allowList: (req) => !req.url.startsWith("/api/"),
     keyGenerator: async (req) => {
@@ -188,6 +200,16 @@ export async function createApp(db: Database, config: AppConfig) {
     },
   });
   const snapshotReads = new SnapshotReads();
+  const roomSnapshots = new RoomSnapshotCache<Awaited<ReturnType<typeof snapshot>>>(
+    Number(process.env.ROOM_SNAPSHOT_MAX_AGE_MS ?? 750),
+  );
+  // Any successful write on this instance may change a room; the next read
+  // rebuilds it (single-flight), so a fan sees their own accepted action at once.
+  app.addHook("onSend", async (req, reply, payload) => {
+    if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && reply.statusCode < 400)
+      roomSnapshots.markDirty();
+    return payload;
+  });
   const roomStreams = new RoomStreams();
   app.addHook("onRequest", async (req, reply) => {
     if (req.url.startsWith("/api/")) reply.header("Cache-Control", "no-store");
@@ -469,10 +491,18 @@ export async function createApp(db: Database, config: AppConfig) {
       : null;
     return { profile: p, operator: Boolean(op) };
   });
+  // OJ-040: a whole venue usually shares one NAT address (and, behind a
+  // hosting proxy, one upstream address), so a low per-address join budget
+  // stalls arrivals. Local load testing measured 1000 arrivals per minute
+  // comfortably; the budget stays bounded and configurable.
+  const joinsPerMinute = Math.max(
+    60,
+    Math.min(10000, config.joinsPerMinute ?? (Number(process.env.JOIN_RATE_PER_MINUTE) || 1500)),
+  );
   const bootstrapLimit = {
     config: {
       rateLimit: {
-        max: 120,
+        max: joinsPerMinute,
         timeWindow: "1 minute",
         keyGenerator: (req: any) => "bootstrap:" + req.ip,
       },
@@ -749,14 +779,22 @@ export async function createApp(db: Database, config: AppConfig) {
   app.get("/api/events/:slug", async (req) => {
     const { slug } = req.params as { slug: string };
     const guest = await session(req, "guest", false);
-    return snapshotReads.run(
-      JSON.stringify([slug, guest?.participant_id ?? null]),
-      () =>
+    const base = await roomSnapshots.get(slug, () =>
+      snapshotReads.run(JSON.stringify([slug, null]), () =>
         db.transaction(async (tx) => {
           await tx.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
-          return snapshot(tx, slug, guest?.participant_id);
+          return snapshot(tx, slug);
         }),
+      ),
     );
+    if (!guest?.participant_id) return base;
+    const overlay = await participantOverlay(
+      db,
+      base.event.id,
+      base.round?.id ?? null,
+      guest.participant_id,
+    );
+    return personalizeSnapshot(base, overlay, guest.participant_id);
   });
   app.get("/api/operator/events/:slug", async (req) => {
     const { slug } = req.params as { slug: string };

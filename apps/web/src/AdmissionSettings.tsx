@@ -98,7 +98,7 @@ export function AdmissionSettings({
                 id="contributor-limit"
                 type="number"
                 min={1}
-                max={100}
+                max={1000}
                 required
                 disabled={locked || busy}
                 value={draft.limit}

@@ -75,8 +75,9 @@ export class RoomStreams {
   private rooms = new Map<string, Set<StreamWriter>>();
   private total = 0;
   constructor(
-    private perRoom = 1000,
-    private maximum = 2000,
+    // 1000 contributors plus listeners, the public screen and performer devices.
+    private perRoom = 1500,
+    private maximum = 3000,
   ) {}
   get stats() {
     return { rooms: this.rooms.size, connections: this.total };
@@ -147,5 +148,46 @@ export async function pollRoomChanges(db: Sql, streams: RoomStreams, seen: Map<s
       seen.set(id, sequence);
       streams.update(id);
     }
+  }
+}
+
+/**
+ * OJ-040: one room-wide snapshot is shared by every listener for a short
+ * window instead of rebuilding the whole room per listener after each update.
+ * Listener-specific values (own votes, ballot revision, reactions, membership)
+ * are always read fresh and overlaid by the caller.
+ */
+export class RoomSnapshotCache<T> {
+  private entries = new Map<string, { at: number; value: Promise<T> }>();
+  private dirtyAt = -Infinity;
+  constructor(
+    private maxAgeMs = 750,
+    private maxRooms = 500,
+    private minAgeAfterWriteMs = 0,
+  ) {}
+  get(room: string, build: () => Promise<T>, now = Date.now()): Promise<T> {
+    const hit = this.entries.get(room);
+    const stale = hit && hit.at < this.dirtyAt && now - hit.at >= this.minAgeAfterWriteMs;
+    if (hit && !stale && now - hit.at < this.maxAgeMs) return hit.value;
+    const value = build();
+    this.entries.delete(room);
+    this.entries.set(room, { at: now, value });
+    if (this.entries.size > this.maxRooms)
+      this.entries.delete(this.entries.keys().next().value!);
+    // A failed build is never served to later readers.
+    value.catch(() => {
+      if (this.entries.get(room)?.value === value) this.entries.delete(room);
+    });
+    return value;
+  }
+  invalidate(room: string) {
+    this.entries.delete(room);
+  }
+  /** After a write: the next read rebuilds (shared by concurrent readers). */
+  markDirty(now = Date.now()) {
+    this.dirtyAt = now;
+  }
+  clear() {
+    this.entries.clear();
   }
 }

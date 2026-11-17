@@ -22,7 +22,7 @@ export const admissionInput = z.object({
   commandId: id,
   expectedRevision: z.number().int().nonnegative(),
   mode: z.enum(["open", "room_code"]),
-  limit: z.number().int().min(1).max(100),
+  limit: z.number().int().min(1).max(1000),
   roomCode: code.optional(),
 });
 export async function configureAdmission(

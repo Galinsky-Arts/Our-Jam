@@ -127,6 +127,8 @@ test("100 arriving phones behind one address get independent participation budge
     origin,
     operatorToken: token,
     secureCookies: false,
+    // Exercise the bound with a small budget; production defaults to 1500/min.
+    joinsPerMinute: 120,
   });
   app.get("/asset.js", () => "public asset");
   t.after(async () => {
