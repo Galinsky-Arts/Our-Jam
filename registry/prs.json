@@ -12,7 +12,7 @@
   ],
   "schemaVersion": 1,
   "roadmapVersion": 1,
-  "observedAt": "2026-11-17T02:53:33.000Z",
+  "observedAt": "2026-11-17T03:31:57.000Z",
   "units": [
     {
       "id": "OJ-001",
@@ -229,12 +229,13 @@
         13
       ],
       "status": "implemented",
-      "implementationNotes": "Verified opt-in email, encrypted contacts, bounded outbox, unsubscribe, signed suppression and foreground notices exist behind disabled delivery. The production email schema is now initialized with delivery disabled. Real sender delivery, native/web push and large-crowd throughput remain open. PR110 (merged and deployed 2026-11-17, commit 13e9f2f): RFC 8291/8292 browser push (node:crypto only) with per-release fanout, one notification per subscription, retries, gone-endpoint pruning and a push-service allowlist; enabled on the hosted service with a generated VAPID key pair. Email delivery stays OFF until a Resend sender is supplied. Not yet observed on a physical phone or a real push service.",
+      "implementationNotes": "Verified opt-in email, encrypted contacts, bounded outbox, unsubscribe, signed suppression and foreground notices exist behind disabled delivery. The production email schema is now initialized with delivery disabled. Real sender delivery, native/web push and large-crowd throughput remain open. PR110 (merged and deployed 2026-11-17, commit 13e9f2f): RFC 8291/8292 browser push (node:crypto only) with per-release fanout, one notification per subscription, retries, gone-endpoint pruning and a push-service allowlist; enabled on the hosted service with a generated VAPID key pair. Email delivery stays OFF until a Resend sender is supplied. Not yet observed on a physical phone or a real push service. PR111 (merged and deployed 2026-11-17, commit 09d4760): push encryption and VAPID now come from the pinned web-push 3.6.7 library (hand-rolled crypto removed); tests reproduce the RFC 8291 Appendix A vector byte for byte.",
       "dependsOn": [],
       "externalDependencies": [],
       "externalPrerequisites": [],
       "contributingPrs": [
-        110
+        110,
+        111
       ]
     },
     {
@@ -496,7 +497,12 @@
       "prs": [],
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "status": "in_progress",
+      "implementationNotes": "PR111 (merged and deployed 2026-11-17, commit 09d4760): LOCAL-HARDWARE load test of 1000 simulated fans (scripts/load-test.mjs, docs/scale-validation.md): fixed the 120/min join limit, the per-listener snapshot herd (shared room snapshot + per-listener overlay) and the anonymous NAT read cap; zero errors and exact server totals after the fixes; contributor capacity raised to 1000. Hosted/venue capacity validation and multi-instance load remain open.",
+      "contributingPrs": [
+        111
+      ]
     },
     {
       "id": "OJ-041",
@@ -505,7 +511,12 @@
       "prs": [],
       "dependsOn": [],
       "externalDependencies": [],
-      "externalPrerequisites": []
+      "externalPrerequisites": [],
+      "status": "in_progress",
+      "implementationNotes": "PR111 (merged and deployed 2026-11-17, commit 09d4760): Neon backup/restore drill: backup branch, temporary read-only restore branch, app-side read-only digest comparison (56/56 tables matched), temporary branch deleted; runbook in docs/disaster-recovery.md. Media-object restore and a large-data restore timing remain open (no media storage configured; database nearly empty).",
+      "contributingPrs": [
+        111
+      ]
     },
     {
       "id": "OJ-042",
@@ -780,6 +791,21 @@
     }
   ],
   "pullRequests": [
+    {
+      "id": 5349986393,
+      "number": 111,
+      "title": "OJ-040/041 + push: web-push library with RFC 8291 vector, 1000-fan load test fixes, restore verification",
+      "url": "https://github.com/Galinsky-Arts/Our-Jam/pull/111",
+      "state": "closed",
+      "draft": false,
+      "createdAt": "2026-11-17T03:26:12.000Z",
+      "updatedAt": "2026-11-17T03:31:57.000Z",
+      "closedAt": "2026-11-17T03:31:56.000Z",
+      "mergedAt": "2026-11-17T03:31:56.000Z",
+      "headSha": "79eb323772257c1764bc9bab8d3f7f3710564f05",
+      "baseRef": "main",
+      "mergeCommitSha": "09d4760dcaca860ffcbde65c1f264bb89c0e2f0b"
+    },
     {
       "id": 5349553012,
       "number": 110,

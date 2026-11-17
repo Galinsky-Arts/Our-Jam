@@ -669,7 +669,7 @@
       "acceptance": "Multiple API instances cannot diverge votes or leader state; 1000-participant target is enabled only after measured success.",
       "verification": "Cross-instance reconnect, burst load, noisy-artist isolation and database saturation tests.",
       "rollout": "Canary rollout and admission caps; broker is not sole vote storage.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
@@ -687,7 +687,7 @@
       "acceptance": "An operator can recover published assets and state; provider uncertainty cannot trigger duplicate charges.",
       "verification": "Isolated disaster restore, credential rotation and primary-provider outage exercise.",
       "rollout": "Failover off by default until approved and rehearsed.",
-      "status": "planned",
+      "status": "in_progress",
       "pr_url": null,
       "verified_sha": null
     },
