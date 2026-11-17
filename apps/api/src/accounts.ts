@@ -154,7 +154,7 @@ export async function followStatus(
   requireThat(artist, "not_found", "Artist not found.", 404);
   const count = (
     await db.query(
-      "SELECT count(*)::integer followers,coalesce(bool_or(participant_id=$2),false) following FROM artist_follows WHERE artist_id=$1",
+      "SELECT count(*)::integer followers,coalesce(bool_or(participant_id=$2),false) following,coalesce(bool_or(participant_id=$2 AND event_reminders),false) reminders FROM artist_follows WHERE artist_id=$1",
       [artistId, participantId ?? null],
     )
   ).rows[0];

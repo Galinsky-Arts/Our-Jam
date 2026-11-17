@@ -1,3 +1,4 @@
+import { assertLiveQuota, assertEventQuota } from "./admin-artists.js";
 import {
   freezeSponsorPlan,
   requireEventAccess,
@@ -520,6 +521,9 @@ export async function createEvent(
     400,
   );
   return db.transaction(async (tx) => {
+    // Serialize an artist's concurrent creates against its quota row (OJ-038).
+    await tx.query("SELECT 1 FROM artist_quotas WHERE artist_id=$1 FOR UPDATE", [artistId]);
+    await assertEventQuota(tx, artistId);
     const platform = await readPlatformVotePolicy(tx, true);
     const eventId = randomUUID();
     const settings = {
@@ -767,6 +771,7 @@ export async function advance(
             [source.duration_seconds * 1000, roundId],
           );
       }
+      if (event.state !== "live") await assertLiveQuota(tx, artistId, eventId);
       await tx.query("UPDATE events SET state='live' WHERE id=$1", [eventId]);
     } else
       await tx.query("UPDATE events SET state='ended' WHERE id=$1", [eventId]);

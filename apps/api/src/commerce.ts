@@ -536,25 +536,8 @@ export async function registerCommerce(
       return { ok: true };
     });
   });
-  app.post("/api/admin/artists", async (req) => {
-    await admin(req);
-    const v = z
-      .object({ name: z.string().trim().min(1).max(100) })
-      .parse(req.body);
-    const artistId = "artist-" + randomUUID(),
-      token = randomBytes(32).toString("hex");
-    await db.transaction(async (tx) => {
-      await tx.query("INSERT INTO artists(id,name,bio) VALUES($1,$2,'')", [
-        artistId,
-        v.name,
-      ]);
-      await tx.query(
-        "INSERT INTO artist_access_keys(token_hash,artist_id) VALUES($1,$2)",
-        [digest(token), artistId],
-      );
-    });
-    return { artistId, token };
-  });
+  // Artist onboarding (POST /api/admin/artists) lives in admin-artists.ts so it
+  // works whether or not payments are enabled.
   app.get("/api/operator/events/:id/commerce", async (req) => {
     const who = await artist(req),
       eventId = id.parse((req.params as any).id);

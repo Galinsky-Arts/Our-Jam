@@ -274,6 +274,9 @@ export async function createApp(db: Database, config: AppConfig) {
       );
     return s;
   }
+  // Shared with feature modules registered after the core (fan journeys,
+  // privacy, exports, administration) so they apply the same session rules.
+  app.decorate("ojSession", session);
   function setSession(reply: any, name: string, token: string, maxAge: number) {
     reply.setCookie(name, token, {
       path: "/",
@@ -292,11 +295,11 @@ export async function createApp(db: Database, config: AppConfig) {
   app.get("/api/ready", async () => {
     const rows = (
       await db.query(
-        "SELECT name FROM schema_migrations WHERE name IN ('001_core.sql','002_playback.sql','003_generation.sql','004_release_email.sql','005_artist_profiles.sql','006_release_controls.sql','007_audience_admission.sql','008_profile_recovery.sql','009_platform_vote_policy.sql','023_room_change_sequence.sql','024_recognition_settings.sql','025_event_commerce_sponsors.sql','026_identity_signin.sql','027_native_identity_handoff.sql')",
+        "SELECT name FROM schema_migrations WHERE name IN ('001_core.sql','002_playback.sql','003_generation.sql','004_release_email.sql','005_artist_profiles.sql','006_release_controls.sql','007_audience_admission.sql','008_profile_recovery.sql','009_platform_vote_policy.sql','023_room_change_sequence.sql','024_recognition_settings.sql','025_event_commerce_sponsors.sql','026_identity_signin.sql','027_native_identity_handoff.sql','028_fan_journeys_admin_quotas.sql')",
       )
     ).rows;
     requireThat(
-      rows.length === 14,
+      rows.length === 15,
       "schema_not_ready",
       "Required database migrations have not been applied.",
       503,
@@ -653,29 +656,46 @@ export async function createApp(db: Database, config: AppConfig) {
       const { token } = z
         .object({ token: z.string().min(1).max(256) })
         .parse(req.body);
+      // Onboarded artists (OJ-038) sign in with their own platform-issued key,
+      // independent of whether payments are enabled.
+      const onboarded = (
+        await db.query(
+          "SELECT k.artist_id,COALESCE(q.suspended,false) suspended FROM artist_access_keys k LEFT JOIN artist_quotas q ON q.artist_id=k.artist_id WHERE k.token_hash=$1 AND NOT k.revoked",
+          [digest(token)],
+        )
+      ).rows[0];
+      const anyArtistKeys =
+        Boolean(onboarded) ||
+        (
+          await db.query(
+            "SELECT EXISTS(SELECT 1 FROM artist_access_keys WHERE NOT revoked) found",
+          )
+        ).rows[0].found;
       requireThat(
         (config.operatorToken && config.operatorToken.length >= 32) ||
-          config.commerce?.enabled,
+          config.commerce?.enabled ||
+          anyArtistKeys,
         "operator_unconfigured",
         "Performer access has not been configured.",
         503,
       );
+      requireThat(
+        !onboarded?.suspended,
+        "artist_suspended",
+        "This artist account is paused by the platform administrator.",
+        403,
+      );
       let artistId: string | undefined;
       if (
         config.operatorToken &&
+        config.operatorToken.length >= 32 &&
         timingSafeEqual(
           Buffer.from(digest(token)),
           Buffer.from(digest(config.operatorToken)),
         )
       )
         artistId = "our-jam";
-      else if (config.commerce?.enabled)
-        artistId = (
-          await db.query(
-            "SELECT artist_id FROM artist_access_keys WHERE token_hash=$1 AND NOT revoked",
-            [digest(token)],
-          )
-        ).rows[0]?.artist_id;
+      else artistId = onboarded?.artist_id;
       requireThat(
         artistId,
         "invalid_credentials",
