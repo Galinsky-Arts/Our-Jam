@@ -1,3 +1,5 @@
+import { configuredIdentity } from "./identity.js";
+import { configuredCommerce } from "./commerce.js";
 import { publicOrigin } from "./runtime-config.js";
 import { postgres, migrate } from "./db.js";
 import {
@@ -10,6 +12,7 @@ import { createApp } from "./app.js";
 import { configuredEmail } from "./email-config.js";
 import { verifyStartupMedia } from "./media-readiness.js";
 import { emailTick } from "./email.js";
+import { configuredWebPush, pushTick } from "./web-push.js";
 import { provisionRuntimeRole } from "./runtime-role.js";
 const production = process.env.NODE_ENV === "production";
 const url = process.env.DATABASE_URL;
@@ -36,13 +39,20 @@ if (process.env.RUN_MIGRATIONS === "1") {
   }
 }
 const mediaStore = configuredStorage();
-const mediaStatus = await verifyStartupMedia(mediaStore, process.env.MEDIA_PROBE_ON_START);
+const mediaStatus = await verifyStartupMedia(
+  mediaStore,
+  process.env.MEDIA_PROBE_ON_START,
+);
 const generation = configuredGeneration(mediaStore);
 const email = configuredEmail(origin);
+const webPush = configuredWebPush();
 const app = await createApp(db, {
   origin,
+  commerce: configuredCommerce(),
+  webPush,
+  identity: configuredIdentity(),
   operatorToken: process.env.OPERATOR_TOKEN,
-  adminToken: process.env.ADMIN_TOKEN,
+  adminToken: process.env.PLATFORM_ADMIN_TOKEN ?? process.env.ADMIN_TOKEN,
   secureCookies: production,
   serveWeb: true,
   providerReady: Boolean(generation),
@@ -108,6 +118,21 @@ const emailTimer = email
     }, 1000)
   : undefined;
 emailTimer?.unref();
+let pushing = false;
+const pushTimer = webPush
+  ? setInterval(async () => {
+      if (pushing) return;
+      pushing = true;
+      try {
+        await pushTick(db, webPush);
+      } catch {
+        console.error(JSON.stringify({ event: "push_worker_failed" }));
+      } finally {
+        pushing = false;
+      }
+    }, 2000)
+  : undefined;
+pushTimer?.unref();
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, async () => {
     clearInterval(roundTimer);

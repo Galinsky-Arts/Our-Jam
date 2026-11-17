@@ -24,8 +24,10 @@ export async function generationTick(db: Database, config: GenerationConfig) {
   // Never automatically resubmit an ambiguous acceptance.
   await db.query("UPDATE generation_jobs SET state='unknown',reason='worker_interrupted',updated_at=now() WHERE state='submitting' AND lease_until<clock_timestamp()");
   const job = await db.transaction<DispatchJob | null>(async (tx) => {
+    // The baseline artist row is the platform-wide budget mutex; jobs from every
+    // onboarded artist are dispatched, each bounded by its own quota (OJ-038).
     await tx.query("SELECT id FROM artists WHERE id='our-jam' FOR UPDATE");
-    const candidate = (await tx.query("SELECT j.id,j.event_id FROM generation_jobs j JOIN events e ON e.id=j.event_id WHERE (j.state='queued' OR (j.state='unknown' AND j.reason='reconciliation_requested')) AND e.artist_id='our-jam' ORDER BY j.created_at LIMIT 1")).rows[0];
+    const candidate = (await tx.query("SELECT j.id,j.event_id FROM generation_jobs j JOIN events e ON e.id=j.event_id WHERE (j.state='queued' OR (j.state='unknown' AND j.reason='reconciliation_requested')) ORDER BY j.created_at LIMIT 1")).rows[0];
     if (!candidate) return null;
     await tx.query("SELECT id FROM events WHERE id=$1 FOR UPDATE", [candidate.event_id]);
     const row = (await tx.query("SELECT j.*,COALESCE(r.settings->>'generationProvider','stability') requested_provider FROM generation_jobs j JOIN rounds r ON r.id=j.round_id WHERE j.id=$1 AND (j.state='queued' OR (j.state='unknown' AND j.reason='reconciliation_requested')) FOR UPDATE OF j", [candidate.id])).rows[0];
@@ -44,8 +46,19 @@ export async function generationTick(db: Database, config: GenerationConfig) {
     else if (!config.store) reason = "media_storage_not_configured";
     if (!reason && resuming) reason = reconciliationBlock(config, row) ?? undefined;
     if (!reason && !resuming) {
-      const costs = (await tx.query("SELECT COALESCE(sum(j.reserved_cents),0)::integer total,COALESCE(sum(j.reserved_cents) FILTER(WHERE j.event_id=$1),0)::integer event FROM generation_jobs j JOIN events e ON e.id=j.event_id WHERE e.artist_id='our-jam'", [row.event_id])).rows[0];
+      // Platform-wide total, per-event cap and (OJ-038) the owning artist's monthly
+      // quota. Onboarded artists default to a $0 quota; the original single-artist
+      // deployment ("our-jam") keeps only the platform caps unless a quota row exists.
+      const costs = (await tx.query(`WITH owner AS (SELECT artist_id FROM events WHERE id=$1)
+        SELECT (SELECT COALESCE(sum(reserved_cents),0)::integer FROM generation_jobs) total,
+        (SELECT COALESCE(sum(reserved_cents),0)::integer FROM generation_jobs WHERE event_id=$1) event,
+        (SELECT COALESCE(sum(j.reserved_cents),0)::integer FROM generation_jobs j JOIN events e ON e.id=j.event_id
+          WHERE e.artist_id=owner.artist_id AND j.created_at>=date_trunc('month',now())) artist_month,
+        (SELECT monthly_generation_cents FROM artist_quotas q WHERE q.artist_id=owner.artist_id) artist_cap,
+        owner.artist_id='our-jam' legacy FROM owner`, [row.event_id])).rows[0];
+      const artistCap = costs.artist_cap ?? (costs.legacy ? null : 0);
       if (costs.total + cost > config.totalBudgetCents || costs.event + cost > config.eventBudgetCents) reason = "approved_budget_exhausted";
+      else if (artistCap !== null && costs.artist_month + cost > artistCap) reason = "artist_quota_exhausted";
     }
     if (reason) {
       await tx.query("UPDATE generation_jobs SET state=$1,reason=$2,updated_at=now() WHERE id=$3", [resuming ? "unknown" : "blocked", reason, row.id]);

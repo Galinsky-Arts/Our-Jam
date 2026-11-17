@@ -280,10 +280,12 @@ test("following is idempotent and private; only published, visible music enters 
   assert.deepEqual((await request("GET", url, undefined, a.token)).json(), {
     followers: 1,
     following: true,
+    reminders: false,
   });
   assert.deepEqual((await request("GET", url, undefined, b.token)).json(), {
     followers: 1,
     following: false,
+    reminders: false,
   });
   assert.equal(
     (await request("GET", "/api/following", undefined, a.token)).json().artists

@@ -81,8 +81,17 @@ export function useEvent(slug: string, operator = false) {
       update({ fresh: false });
       void refresh();
     });
-    stream.onopen = () => update({ streamReady: true });
-    stream.onerror = () => update({ streamReady: false });
+    // While the live stream is down (proxy, captive Wi-Fi, server restart),
+    // poll the authoritative snapshot faster; recover to slow polling on open.
+    let streamDown = false;
+    stream.onopen = () => {
+      streamDown = false;
+      update({ streamReady: true });
+    };
+    stream.onerror = () => {
+      streamDown = true;
+      update({ streamReady: false });
+    };
     const suspend = () => update({ fresh: false });
     const resume = () => {
       if (document.visibilityState === "visible") {
@@ -98,10 +107,12 @@ export function useEvent(slug: string, operator = false) {
       if (Date.now() - scope.lastSuccess > 15000 || !navigator.onLine)
         update({ fresh: false });
     }, 1000);
+    let ticks = 0;
     const fallback = setInterval(() => {
-      if (document.visibilityState === "visible" && navigator.onLine)
-        void refresh();
-    }, 12000);
+      ticks++;
+      if (document.visibilityState !== "visible" || !navigator.onLine) return;
+      if (streamDown || ticks % 3 === 0) void refresh();
+    }, 4000);
     return () => {
       scope.fence.deactivate();
       stream.close();

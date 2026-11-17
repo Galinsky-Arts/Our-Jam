@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useId } from "react";
 import { api, type EventState } from "./api";
+import { MediaStorageNotice } from "./MediaStorageNotice";
 type Source = { id: string; title: string; played: boolean };
 export function AlbumUpload({ data, refresh }: { data: EventState; refresh: () => Promise<void> }) {
   const [sources, setSources] = useState<Source[]>([]), [sourceId, setSourceId] = useState("");
@@ -41,7 +42,7 @@ export function AlbumUpload({ data, refresh }: { data: EventState; refresh: () =
   return <section className="panel" aria-labelledby="album-upload-heading" style={{ padding: 20, marginBottom: 20 }}>
     <h3 id="album-upload-heading">Upload album audio</h3>
     <p>Choose a track from this session and upload its MP3 or WAV. OurJam checks the recording, finds its length, and prepares a private copy for show playback. Keep your original file—you will still need it for your own releases.</p>
-    {available === false && <p role="status">Private audio storage is not connected yet. Uploads are disabled; no file will be sent.</p>}
+    {available === false && <MediaStorageNotice context="upload" />}
     <label htmlFor={trackId} style={{ marginTop: 12 }}>Album track</label>
     <select id={trackId} value={sourceId} disabled={busy} onChange={(e) => setSourceId(e.target.value)}><option value="">Select an unplayed track</option>{sources.map((source) => <option key={source.id} value={source.id} disabled={source.played}>{source.title}{source.played ? " (already played)" : ""}</option>)}</select>
     <label htmlFor={fileId} style={{ marginTop: 12 }}>MP3 or WAV file</label>

@@ -1,5 +1,9 @@
 import { PurchaseEditor } from "./PurchaseLinks";
-import type { PurchaseLink, PurchaseMode } from "../../../packages/contracts/src/purchase-providers";
+import { measureTrackDuration } from "./track-duration";
+import type {
+  PurchaseLink,
+  PurchaseMode,
+} from "../../../packages/contracts/src/purchase-providers";
 import { useEffect, useRef, useState } from "react";
 import { api, type EventState } from "./api";
 
@@ -15,7 +19,11 @@ export function ShowSetup({
     [album, setAlbum] = useState<any[] | null>(null),
     [settings, setSettings] = useState<EventState["event"] | null>(null),
     [purchaseLinks, setPurchaseLinks] = useState<PurchaseLink[]>([]),
-    [platformVotes, setPlatformVotes] = useState<{mode:"fixed";fixedVotes:number}|{mode:"artist";minVotes:number;maxVotes:number}|null>(null),
+    [platformVotes, setPlatformVotes] = useState<
+      | { mode: "fixed"; fixedVotes: number }
+      | { mode: "artist"; minVotes: number; maxVotes: number }
+      | null
+    >(null),
     [purchaseMode, setPurchaseMode] = useState<PurchaseMode>("menu"),
     [preferredPurchaseProvider, setPreferredPurchaseProvider] = useState(""),
     [checks, setChecks] = useState<Record<string, string>>({});
@@ -29,7 +37,19 @@ export function ShowSetup({
       checking.current?.abort();
     };
   }, [data.event.revision]);
-  useEffect(() => { let live = true; api("/operator/vote-policy").then(policy => { if(live) setPlatformVotes(policy); }).catch(e => { if(live) setError(e.message); }); return () => { live = false; }; }, []);
+  useEffect(() => {
+    let live = true;
+    api("/operator/vote-policy")
+      .then((policy) => {
+        if (live) setPlatformVotes(policy);
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
   async function action(work: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -85,8 +105,19 @@ export function ShowSetup({
       )}
       <details
         onToggle={(e) => {
-          if (e.currentTarget.open && !settings)
-            { setSettings(structuredClone(data.event)); setPurchaseLinks(data.event.purchaseLinks as PurchaseLink[] ?? (data.event.purchaseUrl ? [{provider:"other",url:data.event.purchaseUrl}] : [])); setPurchaseMode(data.event.purchaseMode ?? "menu"); setPreferredPurchaseProvider(data.event.preferredPurchaseProvider ?? ""); }
+          if (e.currentTarget.open && !settings) {
+            setSettings(structuredClone(data.event));
+            setPurchaseLinks(
+              (data.event.purchaseLinks as PurchaseLink[]) ??
+                (data.event.purchaseUrl
+                  ? [{ provider: "other", url: data.event.purchaseUrl }]
+                  : []),
+            );
+            setPurchaseMode(data.event.purchaseMode ?? "menu");
+            setPreferredPurchaseProvider(
+              data.event.preferredPurchaseProvider ?? "",
+            );
+          }
         }}
       >
         <summary>Event, screen & participation settings</summary>
@@ -98,7 +129,19 @@ export function ShowSetup({
         <button
           className="ghost small"
           disabled={busy}
-          onClick={() => {setSettings(structuredClone(data.event));setPurchaseLinks(data.event.purchaseLinks as PurchaseLink[] ?? (data.event.purchaseUrl ? [{provider:"other",url:data.event.purchaseUrl}] : [])); setPurchaseMode(data.event.purchaseMode ?? "menu"); setPreferredPurchaseProvider(data.event.preferredPurchaseProvider ?? "");}}
+          onClick={() => {
+            setSettings(structuredClone(data.event));
+            setPurchaseLinks(
+              (data.event.purchaseLinks as PurchaseLink[]) ??
+                (data.event.purchaseUrl
+                  ? [{ provider: "other", url: data.event.purchaseUrl }]
+                  : []),
+            );
+            setPurchaseMode(data.event.purchaseMode ?? "menu");
+            setPreferredPurchaseProvider(
+              data.event.preferredPurchaseProvider ?? "",
+            );
+          }}
         >
           Reload settings fields
         </button>
@@ -120,9 +163,15 @@ export function ShowSetup({
                     purchaseUrl: null,
                     purchaseLinks,
                     voteMode: "single",
-                    votesPerListener: platformVotes?.mode === "fixed" ? platformVotes.fixedVotes : Number(form.get("votesPerListener")),
+                    votesPerListener:
+                      platformVotes?.mode === "fixed"
+                        ? platformVotes.fixedVotes
+                        : Number(form.get("votesPerListener")),
                     purchaseMode,
-                    preferredPurchaseProvider: purchaseMode === "direct" ? preferredPurchaseProvider : null,
+                    preferredPurchaseProvider:
+                      purchaseMode === "direct"
+                        ? preferredPurchaseProvider
+                        : null,
                     releaseMode: form.get("releaseMode"),
                     waveExclusions: String(form.get("waveExclusions") ?? "").split(/\r?\n/).map(x => x.trim()).filter(Boolean),
                     ...Object.fromEntries(
@@ -198,7 +247,12 @@ export function ShowSetup({
                     0,
                     300,
                   ],
-                  ["maxWaves", "Top Sound Waves considered for each new track", 1, 12],
+                  [
+                    "maxWaves",
+                    "Top Sound Waves considered for each new track",
+                    1,
+                    12,
+                  ],
                   [
                     "maxGenerations",
                     "Maximum crowd-created tracks for this event",
@@ -221,7 +275,9 @@ export function ShowSetup({
                 </label>
               ))}
             </div>
-            <button disabled={busy || !platformVotes}>Save show settings</button>
+            <button disabled={busy || !platformVotes}>
+              Save show settings
+            </button>
           </form>
         )}
       </details>
@@ -232,9 +288,9 @@ export function ShowSetup({
       >
         <summary>Review your songs and musical descriptions</summary>
         <p className="muted">
-          Fix song titles or descriptions before the song starts.
-          Your uploaded audio stays attached. To replace a recording,
-          use Upload album audio in the performer console.
+          Fix song titles or descriptions before the song starts. Your uploaded
+          audio stays attached. To replace a recording, use Upload album audio
+          in the performer console.
         </p>
         <button
           className="ghost small"
@@ -256,7 +312,10 @@ export function ShowSetup({
                   expectedRevision: inputRevision.current,
                   title: source.title,
                   corePrompt: source.core_prompt,
-                  durationSeconds: Number(source.duration_seconds),
+                  durationSeconds:
+                    !source.duration_verified && source.audio_url
+                      ? await measureTrackDuration(source.audio_url)
+                      : Number(source.duration_seconds),
                 });
                 setAlbum(null);
               });
@@ -266,10 +325,17 @@ export function ShowSetup({
               {s.title}
               {s.played ? " · already played" : ""}
             </h3>
+            <p className="tiny muted">
+              Track length: {Number(s.duration_seconds).toFixed(1)} seconds.
+              {s.duration_verified
+                ? " Measured automatically from the uploaded audio."
+                : s.audio_url
+                  ? " Detected again when you save this linked track. Upload the file to verify its length for payment."
+                  : " Upload this track to detect and verify its length."}
+            </p>
             {(
               [
                 ["title", "Track title"],
-                ["duration_seconds", "Track duration in seconds"],
                 ["core_prompt", "Describe this song’s signature sound"],
               ] as const
             ).map(([key, label]) => (
@@ -294,13 +360,7 @@ export function ShowSetup({
                   <input
                     disabled={s.played || busy}
                     required
-                    type={
-                      key === "duration_seconds"
-                        ? "number"
-                        : "text"
-                    }
-                    min={key === "duration_seconds" ? 15 : undefined}
-                    max={key === "duration_seconds" ? 1200 : undefined}
+                    type="text"
                     value={s[key] ?? ""}
                     onChange={(e) =>
                       setAlbum((a) =>
@@ -313,6 +373,12 @@ export function ShowSetup({
                 )}
               </label>
             ))}
+            <p className="tiny">
+              Duration:{" "}
+              {s.audio_url
+                ? `${s.duration_seconds} seconds · measured from audio when saved or uploaded`
+                : "Waiting for audio upload; upload before opening this track’s round."}
+            </p>
             <button disabled={s.played || busy}>Save album track</button>
           </form>
         ))}

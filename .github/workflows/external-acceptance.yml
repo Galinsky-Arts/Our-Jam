@@ -1,0 +1,32 @@
+name: External payment and sign-in acceptance (opt-in)
+# Manual only. Each check prints SKIPPED and passes when its credentials are not
+# configured as repository secrets; it never fabricates a provider result.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stripe-and-google:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_TEST_WEBHOOK_SECRET: ${{ secrets.STRIPE_TEST_WEBHOOK_SECRET }}
+      OUR_JAM_ORIGIN: ${{ vars.OUR_JAM_ORIGIN }}
+      NEON_AUTH_BASE_URL: ${{ vars.NEON_AUTH_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Stripe TEST PaymentIntent and refund (PR #97)
+        run: node scripts/check-stripe-real-sandbox-refund.mjs
+      - name: Stripe TEST hosted Checkout, signed webhook entitlement and refund (PR #94)
+        run: node --import tsx scripts/check-stripe-sandbox-paid-checkout.mjs
+      - name: Google OAuth initiation and callback (PR #98)
+        run: node scripts/check-google-oauth-redirect.mjs
