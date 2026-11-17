@@ -215,6 +215,9 @@ export async function exportParticipant(db: Sql, participantId: string) {
     emailSubscriptions: await one(
       "SELECT e.slug event,s.state,s.consent_at,s.consent_version,s.verified_at FROM email_subscriptions s JOIN events e ON e.id=s.event_id WHERE s.participant_id=$1",
     ),
+    pushNotifications: await one(
+      "SELECT e.slug event,s.created_at,s.disabled_at FROM push_subscriptions s JOIN events e ON e.id=s.event_id WHERE s.participant_id=$1",
+    ),
     receipts: await one(
       "SELECT id,wave_id,show_name,created_at,revoked_at FROM contribution_receipts WHERE participant_id=$1",
     ),
@@ -253,6 +256,7 @@ export async function eraseParticipant(db: Database, participantId: string) {
     await tx.query("DELETE FROM participant_recovery WHERE participant_id=$1", [participantId]);
     await tx.query("DELETE FROM artist_follows WHERE participant_id=$1", [participantId]);
     await tx.query("DELETE FROM contribution_receipts WHERE participant_id=$1", [participantId]);
+    await tx.query("DELETE FROM push_subscriptions WHERE participant_id=$1", [participantId]);
     await tx.query(
       "UPDATE email_subscriptions SET state='unsubscribed',contact_ciphertext=NULL,verify_hash=NULL WHERE participant_id=$1",
       [participantId],

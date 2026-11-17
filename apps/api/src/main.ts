@@ -12,6 +12,7 @@ import { createApp } from "./app.js";
 import { configuredEmail } from "./email-config.js";
 import { verifyStartupMedia } from "./media-readiness.js";
 import { emailTick } from "./email.js";
+import { configuredWebPush, pushTick } from "./web-push.js";
 import { provisionRuntimeRole } from "./runtime-role.js";
 const production = process.env.NODE_ENV === "production";
 const url = process.env.DATABASE_URL;
@@ -44,9 +45,11 @@ const mediaStatus = await verifyStartupMedia(
 );
 const generation = configuredGeneration(mediaStore);
 const email = configuredEmail(origin);
+const webPush = configuredWebPush();
 const app = await createApp(db, {
   origin,
   commerce: configuredCommerce(),
+  webPush,
   identity: configuredIdentity(),
   operatorToken: process.env.OPERATOR_TOKEN,
   adminToken: process.env.PLATFORM_ADMIN_TOKEN ?? process.env.ADMIN_TOKEN,
@@ -115,6 +118,21 @@ const emailTimer = email
     }, 1000)
   : undefined;
 emailTimer?.unref();
+let pushing = false;
+const pushTimer = webPush
+  ? setInterval(async () => {
+      if (pushing) return;
+      pushing = true;
+      try {
+        await pushTick(db, webPush);
+      } catch {
+        console.error(JSON.stringify({ event: "push_worker_failed" }));
+      } finally {
+        pushing = false;
+      }
+    }, 2000)
+  : undefined;
+pushTimer?.unref();
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, async () => {
     clearInterval(roundTimer);

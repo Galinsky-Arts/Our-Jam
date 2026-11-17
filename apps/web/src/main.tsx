@@ -20,6 +20,14 @@ const SignIn = lazy(() => import("./Identity").then((m) => ({ default: m.SignIn 
 const CommerceAdmin = lazy(() => import("./Commerce").then((m) => ({ default: m.CommerceAdmin })));
 const EventCommerce = lazy(() => import("./Commerce").then((m) => ({ default: m.EventCommerce })));
 const Account = lazy(() => import("./Account").then((m) => ({ default: m.Account })));
+const ArtistPage = lazy(() => import("./ArtistPage").then((m) => ({ default: m.ArtistPage })));
+const ArtistEditor = lazy(() => import("./ArtistPage").then((m) => ({ default: m.ArtistEditor })));
+const LikedLibrary = lazy(() => import("./ArtistPage").then((m) => ({ default: m.LikedLibrary })));
+const Recorder = lazy(() => import("./Recorder").then((m) => ({ default: m.Recorder })));
+const ReceiptPage = lazy(() => import("./FanJourney").then((m) => ({ default: m.ReceiptPage })));
+const ReleaseAwards = lazy(() => import("./FanJourney").then((m) => ({ default: m.ReleaseAwards })));
+const ArtistAdmin = lazy(() => import("./ArtistAdmin").then((m) => ({ default: m.ArtistAdmin })));
+const ConfigurationStatus = lazy(() => import("./ArtistAdmin").then((m) => ({ default: m.ConfigurationStatus })));
 const PlatformAdmin = lazy(() => import("./PlatformAdmin").then((m) => ({ default: m.PlatformAdmin })));
 import { createRoot } from "react-dom/client";
 import QRCode from "qrcode";
@@ -45,12 +53,12 @@ import { ShowPlayer } from "./ShowPlayer";
 import { ShowSetup } from "./ShowSetup";
 import { RehearsalReadiness } from "./RehearsalReadiness";
 import { useEvent } from "./useEvent";
-import { ArtistPage, ArtistEditor, LikedLibrary } from "./ArtistPage";
 import { ReleaseEmail, EmailAction, EmailStatus } from "./ReleaseEmail";
 import { ReleaseNotice } from "./ReleaseNotice";
-import { Recorder } from "./Recorder";
+import { ReleasePush } from "./ReleasePush";
 import { AlbumBackup } from "./AlbumBackup";
 import { GuidedHelp } from "./GuidedHelp";
+import { MediaStorageNotice } from "./MediaStorageNotice";
 
 function Mark() {
   return (
@@ -79,6 +87,9 @@ function Header({ children }: { children?: React.ReactNode }) {
             <IdentityLink compact />
             <a className="small text-button" href="/library">
               Your likes
+            </a>
+            <a className="small text-button" href="/account">
+              Your music
             </a>
             <a className="button small ghost" href="/performer">
               Performer ↗
@@ -398,6 +409,8 @@ function Audience({ slug }: { slug: string }) {
     ),
     [text, setText] = useState(""),
     [editingWaveId, setEditingWaveId] = useState<string | null>(null),
+    [waveQuery, setWaveQuery] = useState(""),
+    [waveLimit, setWaveLimit] = useState(40),
     [editingWaveText, setEditingWaveText] = useState(""),
     [busy, setBusy] = useState(false),
     [profile, setProfile] = useState(false),
@@ -428,6 +441,13 @@ function Audience({ slug }: { slug: string }) {
     );
   const round = data.round;
   const waves = round?.waves ?? [];
+  // OJ-029: every eligible Sound Wave stays discoverable in crowded rounds.
+  // Ranks come from the full ordering, so filtering never renumbers ideas.
+  const waveNeedle = waveQuery.trim().toLowerCase();
+  const matchingWaves = waves
+    .map((w, i) => ({ w, i }))
+    .filter(({ w }) => !waveNeedle || w.text.toLowerCase().includes(waveNeedle));
+  const visibleWaves = matchingWaves.slice(0, waveNeedle ? 200 : waveLimit);
   const used = waves.reduce((n, w) => n + w.mine, 0);
   const voteLimit =
     round?.voteLimit ??
@@ -718,8 +738,27 @@ function Audience({ slug }: { slug: string }) {
                       </p>
                     )}
                   </form>
+                  {waves.length > 12 && (
+                    <div className="wave-search">
+                      <label>
+                        Find a Sound Wave ({waves.length} ideas)
+                        <input
+                          type="search"
+                          value={waveQuery}
+                          maxLength={48}
+                          onChange={(e) => setWaveQuery(e.target.value)}
+                        />
+                      </label>
+                      {waveNeedle && (
+                        <p className="tiny muted" role="status">
+                          {matchingWaves.length} matching{" "}
+                          {matchingWaves.length === 1 ? "idea" : "ideas"}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="wave-list">
-                    {waves.map((w, i) => (
+                    {visibleWaves.map(({ w, i }) => (
                       <div
                         className={"wave-row " + (w.mine ? "supported" : "")}
                         key={w.id}
@@ -796,6 +835,16 @@ function Audience({ slug }: { slug: string }) {
                         </div>
                       </div>
                     ))}
+                    {!waveNeedle && matchingWaves.length > visibleWaves.length && (
+                      <button
+                        type="button"
+                        className="ghost small"
+                        onClick={() => setWaveLimit((n) => n + 40)}
+                      >
+                        Show {Math.min(40, matchingWaves.length - visibleWaves.length)} more of{" "}
+                        {matchingWaves.length - visibleWaves.length} remaining ideas
+                      </button>
+                    )}
                     {!waves.length && (
                       <p className="muted empty-inline">
                         No Sound Waves yet. Be the first to suggest a musical
@@ -839,6 +888,7 @@ function Audience({ slug }: { slug: string }) {
           </section>
         )}
         <ReleaseEmail eventId={data.event.id} joined={data.joined} />
+        <ReleasePush eventId={data.event.id} joined={data.joined} />
         <div className="support-artist">
           <div>
             <span className="eyebrow">IT STARTED WITH THE ALBUM</span>
@@ -1138,6 +1188,9 @@ function Listener({
           ))}
         </details>
       )}
+      <Suspense fallback={null}>
+        <ReleaseAwards releaseId={release.id} />
+      </Suspense>
       <div className="comments">
         {comments.map((c) => (
           <div key={c.id}>
@@ -1314,7 +1367,9 @@ function Performer({ slug }: { slug?: string }) {
                 </a>
               ))}
             </div>
-            <ArtistEditor />
+            <Suspense fallback={null}>
+              <ArtistEditor />
+            </Suspense>
             <CreateEvent />
           </>
         ) : (
@@ -1382,10 +1437,9 @@ function CreateEvent() {
         setBusy(true);
         const form = new FormData(e.currentTarget);
         try {
-          if (storageReady !== true || sources.some((s) => !s.file))
-            throw new Error(
-              "Choose an MP3 or WAV for every track. Private album storage must be ready.",
-            );
+          if (storageReady === null || sources.some((s) => !s.file))
+            throw new Error("Choose an MP3 or WAV for every track.");
+          const deviceOnly = storageReady === false;
           if (
             sources.some(
               (s) =>
@@ -1420,15 +1474,34 @@ function CreateEvent() {
                     : undefined,
                 screenLimit: Number(form.get("screenLimit")),
                 admissionMode: form.get("admissionMode"),
-                sources: sources.map((s) => ({
-                  title: s.title,
-                  corePrompt: s.corePrompt,
-                  durationSeconds: 180,
-                })),
+                sources: await Promise.all(
+                  sources.map(async (s) => {
+                    let durationSeconds = 180;
+                    if (deviceOnly) {
+                      // Without server storage the file never leaves this
+                      // device; measure its real length locally instead.
+                      const url = URL.createObjectURL(s.file!);
+                      try {
+                        durationSeconds = await measureTrackDuration(url, 15);
+                      } finally {
+                        URL.revokeObjectURL(url);
+                      }
+                    }
+                    return {
+                      title: s.title,
+                      corePrompt: s.corePrompt,
+                      durationSeconds,
+                    };
+                  }),
+                ),
               },
             ));
 
           setSaved(created);
+          if (deviceOnly) {
+            location.href = "/performer/" + created.slug + "?album=device";
+            return;
+          }
           const catalog = await api(
             "/operator/events/" + created.id + "/sources",
           );
@@ -1492,12 +1565,7 @@ function CreateEvent() {
         preserve, and share the event code with your fans. You can upload MP3 or
         WAV files right here—no outside hosting needed.
       </p>
-      {storageReady === false && (
-        <p role="alert" className="notice">
-          Private album storage is not available. New sessions are disabled
-          until it is configured.
-        </p>
-      )}
+      {storageReady === false && <MediaStorageNotice context="create" />}
       <div className="form-grid">
         <label>
           Event title
@@ -1673,12 +1741,16 @@ function CreateEvent() {
           .
         </p>
       )}
-      <button disabled={busy || storageReady !== true || !platformVotes}>
+      <button disabled={busy || storageReady === null || !platformVotes}>
         {busy
-          ? "Uploading your album…"
+          ? storageReady === false
+            ? "Measuring your songs…"
+            : "Uploading your album…"
           : saved
             ? "Retry remaining uploads ↗"
-            : "Create and upload album ↗"}
+            : storageReady === false
+              ? "Create show (album stays on this device) ↗"
+              : "Create and upload album ↗"}
       </button>
     </form>
   );
@@ -2117,6 +2189,7 @@ function Console({ slug }: { slug: string }) {
         />
         <EmailStatus eventId={data.event.id} />
         <Moderation eventId={data.event.id} />
+        <Suspense fallback={null}>
         <Recorder
           eventId={data.event.id}
           currentId={
@@ -2125,7 +2198,30 @@ function Console({ slug }: { slug: string }) {
               : (data.current?.id ?? null)
           }
         />
+        </Suspense>
 
+        <section className="panel" aria-labelledby="export-heading">
+          <h3 id="export-heading">Event album export</h3>
+          <p className="tiny muted">
+            A reviewable package of every released track in order, with fan
+            credits, AI disclosure and checksums. Your private core prompts are
+            never included, and nothing is sent to a distributor.
+          </p>
+          <a
+            className="button ghost small"
+            href={`/api/operator/events/${data.event.id}/export`}
+            download
+          >
+            Download album manifest (JSON)
+          </a>{" "}
+          <a
+            className="button ghost small"
+            href={`/api/operator/events/${data.event.id}/export?format=csv`}
+            download
+          >
+            Download credits (CSV)
+          </a>
+        </section>
         <p className="tiny muted">
           Keep a local album backup and a separate recording running for a live
           event. This build still needs hardware and venue rehearsal.
@@ -2149,9 +2245,26 @@ else if (segments[0] === "admin")
       <Header />
       <nav aria-label="Administration sections">
         <a href="/admin">Voting policy</a> ·{" "}
+        <a href="/admin/artists">Artists and quotas</a> ·{" "}
+        <a href="/admin/configuration">Configuration</a> ·{" "}
         <a href="/admin/commerce">Payments and sponsor videos</a>
       </nav>
-      {segments[1] === "commerce" ? <CommerceAdmin /> : <PlatformAdmin />}
+      {segments[1] === "commerce" ? (
+        <CommerceAdmin />
+      ) : segments[1] === "artists" ? (
+        <ArtistAdmin />
+      ) : segments[1] === "configuration" ? (
+        <ConfigurationStatus />
+      ) : (
+        <PlatformAdmin />
+      )}
+    </>
+  );
+else if (segments[0] === "receipt" && segments[1])
+  screen = (
+    <>
+      <Header />
+      <ReceiptPage id={decodeURIComponent(segments[1])} />
     </>
   );
 else if (segments[0] === "event" && segments[1])
@@ -2193,8 +2306,34 @@ else if (segments[0] === "library")
     </>
   );
 else screen = <Home />;
+const ROUTE_TITLES: Record<string, string> = {
+  performer: "Performer console",
+  screen: "Live screen",
+  account: "Your music",
+  library: "Your likes",
+  admin: "Administration",
+  receipt: "Contribution receipt",
+  signin: "Sign in",
+  artist: "Artist",
+  event: "Live show",
+};
+if (segments[0] && ROUTE_TITLES[segments[0]])
+  document.title = ROUTE_TITLES[segments[0]] + " · Our Jam";
 createRoot(document.getElementById("root")!).render(
   <>
+    <a
+      className="skip-link"
+      href="#main"
+      onClick={(e) => {
+        const main = document.querySelector("main");
+        if (!main) return;
+        e.preventDefault();
+        main.setAttribute("tabindex", "-1");
+        main.focus();
+      }}
+    >
+      Skip to main content
+    </a>
     <IdentitySession />
     <Suspense fallback={<p className="muted" role="status">Loading…</p>}>
       {screen}

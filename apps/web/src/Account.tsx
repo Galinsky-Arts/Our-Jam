@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ensureGuest } from "./api";
+import { MusicJourney, PrivacyControls, ShowReminders } from "./FanJourney";
 
 export function Account() {
   const [profile, setProfile] = useState<any>(null),
@@ -290,6 +291,12 @@ export function Account() {
           )}
         </>
       )}
+      {status && (
+        <>
+          <MusicJourney />
+          <PrivacyControls />
+        </>
+      )}
     </main>
   );
 }
@@ -343,6 +350,7 @@ export function FollowArtist({ artistId }: { artistId: string }) {
         {data?.followers ?? 0}{" "}
         {data?.followers === 1 ? "follower" : "followers"}
       </span>
+      <ShowReminders artistId={artistId} following={Boolean(data?.following)} />
       <p className="tiny muted">
         Find this artist’s crowd creations in Your likes. Following does not
         subscribe you to emails.

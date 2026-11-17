@@ -15,7 +15,8 @@ import { registerComparisonRateAdmin } from "./comparison-rate-admin.js";
 import { registerFanJourneys } from "./fan-journeys.js";
 import { registerArtistAdministration } from "./admin-artists.js";
 import { registerEventExport } from "./event-export.js";
-export type AppConfig = CoreAppConfig & { generation?: GenerationConfig; webPush?: unknown };
+import { registerWebPush, type WebPushConfig } from "./web-push.js";
+export type AppConfig = CoreAppConfig & { generation?: GenerationConfig; webPush?: WebPushConfig };
 export async function createApp(db: Database, config: AppConfig) {
   const app = await createCoreApp(db, config);
   registerEventStreamShutdown(app);
@@ -38,6 +39,7 @@ export async function createApp(db: Database, config: AppConfig) {
     );
   await registerIdentity(app, db, config.origin, config.identity);
   registerFanJourneys(app, db);
+  registerWebPush(app, db, config.webPush);
   registerEventExport(app, db, Boolean(config.mediaStore));
   const generation = config.generation ?? configuredGeneration(config.mediaStore);
   registerArtistAdministration(app, db, () => ({

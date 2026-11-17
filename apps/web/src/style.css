@@ -2039,3 +2039,98 @@ summary {
   display: block;
   line-height: 1.6;
 }
+
+/* OJ-030/031 fan journeys, receipts and recognition */
+.contribution-list,
+.plain-list,
+.config-list,
+.award-badges {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.contribution-list,
+.config-list {
+  display: grid;
+  gap: 12px;
+}
+.plain-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.contribution-text {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+.award-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.award-badge,
+.status-chip {
+  display: inline-block;
+  border: 1px solid var(--lime);
+  color: var(--lime);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.status-chip.status-not_selected {
+  border-color: var(--muted);
+  color: var(--muted);
+}
+.receipt-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.receipt-page .receipt h1 {
+  overflow-wrap: anywhere;
+}
+.media-notice p {
+  margin: 6px 0;
+}
+.media-notice code {
+  overflow-wrap: anywhere;
+}
+.usage-table {
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.usage-table th,
+.usage-table td {
+  text-align: left;
+  padding: 4px 12px 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+button.danger {
+  background: #ff6b5f;
+  border-color: #ff6b5f;
+  color: #1a0705;
+}
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -60px;
+  z-index: 1000;
+  background: var(--lime);
+  color: #13160a;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+.skip-link:focus {
+  top: 8px;
+}
+main:focus {
+  outline: none;
+}
+.wave-search {
+  margin: 8px 0;
+}

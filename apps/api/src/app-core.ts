@@ -295,11 +295,11 @@ export async function createApp(db: Database, config: AppConfig) {
   app.get("/api/ready", async () => {
     const rows = (
       await db.query(
-        "SELECT name FROM schema_migrations WHERE name IN ('001_core.sql','002_playback.sql','003_generation.sql','004_release_email.sql','005_artist_profiles.sql','006_release_controls.sql','007_audience_admission.sql','008_profile_recovery.sql','009_platform_vote_policy.sql','023_room_change_sequence.sql','024_recognition_settings.sql','025_event_commerce_sponsors.sql','026_identity_signin.sql','027_native_identity_handoff.sql','028_fan_journeys_admin_quotas.sql')",
+        "SELECT name FROM schema_migrations WHERE name IN ('001_core.sql','002_playback.sql','003_generation.sql','004_release_email.sql','005_artist_profiles.sql','006_release_controls.sql','007_audience_admission.sql','008_profile_recovery.sql','009_platform_vote_policy.sql','023_room_change_sequence.sql','024_recognition_settings.sql','025_event_commerce_sponsors.sql','026_identity_signin.sql','027_native_identity_handoff.sql','028_fan_journeys_admin_quotas.sql','029_web_push.sql')",
       )
     ).rows;
     requireThat(
-      rows.length === 15,
+      rows.length === 16,
       "schema_not_ready",
       "Required database migrations have not been applied.",
       503,
