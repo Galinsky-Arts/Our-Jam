@@ -1,14 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createDecipheriv, createECDH, createHmac, createPublicKey, randomBytes, randomUUID, verify } from "node:crypto";
+import { createRequire } from "node:module";
+const ece = createRequire(import.meta.url)("http_ece");
 import { testDatabase } from "./database.js";
 import {
   allowedPushEndpoint,
   configuredWebPush,
-  encryptPayload,
   generateVapidKeys,
+  pushRequest,
   pushTick,
-  vapidAuthorization,
   type WebPushConfig,
 } from "../apps/api/src/web-push.js";
 import { createApp } from "../apps/api/src/app.js";
@@ -41,14 +42,41 @@ function browser() {
   return { ua, auth, keys: { p256dh: ua.getPublicKey().toString("base64url"), auth: auth.toString("base64url") } };
 }
 
-test("push payloads decrypt with the subscriber's keys and VAPID tokens verify against the public key", () => {
+// RFC 8291 Appendix A test vector.
+const RFC = {
+  plaintext: "When I grow up, I want to be a watermelon",
+  asPrivate: "yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw",
+  asPublic: "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8",
+  uaPrivate: "q1dXpw3UpT5VOmu_cf_v6ih07Aems3njxI-JWgLcM94",
+  uaPublic: "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4",
+  sharedSecret: "kyrL1jIIOHEzg3sM2ZWRHDRB62YACZhhSlknJ672kSs",
+  auth: "BTBZMqHH6r4Tts7J_aSIgg",
+  salt: "DGv6ra1nlYgDCS1FRnbzlw",
+  body: "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN",
+};
+const b64 = (s: string) => Buffer.from(s, "base64url");
+
+test("RFC 8291 Appendix A vector: the web-push encryption stack reproduces the exact message and it decrypts", () => {
+  const as = createECDH("prime256v1");
+  as.setPrivateKey(b64(RFC.asPrivate));
+  assert.equal(as.getPublicKey().toString("base64url"), RFC.asPublic);
+  assert.equal(as.computeSecret(b64(RFC.uaPublic)).toString("base64url"), RFC.sharedSecret);
+  // http_ece is the encryption engine web-push uses for aes128gcm.
+  const body = ece.encrypt(Buffer.from(RFC.plaintext), { version: "aes128gcm", dh: b64(RFC.uaPublic), privateKey: as, salt: b64(RFC.salt), authSecret: b64(RFC.auth) });
+  assert.equal(body.toString("base64url"), RFC.body);
+  const ua = createECDH("prime256v1");
+  ua.setPrivateKey(b64(RFC.uaPrivate));
+  assert.equal(decrypt(b64(RFC.body), ua, b64(RFC.auth)).toString(), RFC.plaintext);
+});
+
+test("library-built push requests decrypt with the subscriber's keys and carry a verifiable VAPID token", () => {
   const vapid = generateVapidKeys();
   const config: WebPushConfig = { ...vapid, subject: "mailto:ops@example.com" };
   const b = browser();
-  const body = encryptPayload(Buffer.from('{"title":"hi"}'), b.keys.p256dh, b.keys.auth);
-  assert.equal(decrypt(body, b.ua, b.auth).toString(), '{"title":"hi"}');
-  const header = vapidAuthorization(config, "https://fcm.googleapis.com/fcm/send/abc", Date.UTC(2026, 10, 17));
-  const [, jwt, k] = /^vapid t=([^,]+), k=(.+)$/.exec(header)!;
+  const request = pushRequest(config, { endpoint: "https://fcm.googleapis.com/fcm/send/abc", ...b.keys }, '{"title":"hi"}', "release1");
+  assert.equal(request.headers["Content-Encoding"], "aes128gcm");
+  assert.equal(decrypt(request.body, b.ua, b.auth).toString(), '{"title":"hi"}');
+  const [, jwt, k] = /^vapid t=([^,]+), k=(.+)$/.exec(request.headers.Authorization)!;
   assert.equal(k, vapid.publicKey);
   const [h, c, sig] = jwt.split(".");
   const claims = JSON.parse(Buffer.from(c, "base64url").toString());
@@ -102,6 +130,7 @@ test("each release notifies each opted-in subscription once, retries transient f
     if (endpoint.includes("gone")) return { status: 410 };
     if (flaky-- > 0) return { status: 503 };
     assert.match(init.headers.Authorization, /^vapid t=/);
+    assert.equal(init.headers["Content-Encoding"], "aes128gcm");
     received.push(decrypt(init.body, good.ua, good.auth).toString());
     return { status: 201 };
   };

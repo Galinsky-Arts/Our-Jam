@@ -1,20 +1,13 @@
-import {
-  createCipheriv,
-  createECDH,
-  createHmac,
-  createPrivateKey,
-  randomBytes,
-  randomUUID,
-  sign,
-  type ECDH,
-} from "node:crypto";
+import { randomUUID } from "node:crypto";
+import webpush from "web-push";
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import type { Database } from "./db.js";
 import { requireThat } from "../../../packages/domain/src/index.js";
 
-// OJ-019 browser push for releases. Payloads are encrypted per RFC 8291
-// (aes128gcm) and authenticated with VAPID (RFC 8292) using only node:crypto.
+// OJ-019 browser push for releases. Encryption (RFC 8291/8188 aes128gcm) and
+// VAPID (RFC 8292) come from the pinned, widely used `web-push` library; this
+// module adds only the subscription store, fanout, retries and SSRF allowlist.
 // Off unless a VAPID key pair is configured; the fanout gives each opted-in
 // subscription at most one notification per release.
 export type WebPushConfig = {
@@ -24,7 +17,6 @@ export type WebPushConfig = {
   send?: (endpoint: string, init: { method: string; headers: Record<string, string>; body: Buffer }) => Promise<{ status: number }>;
 };
 
-const b64u = (b: Buffer) => b.toString("base64url");
 const unb64u = (s: string) => Buffer.from(s.replace(/=+$/, ""), "base64url");
 
 export function configuredWebPush(env: NodeJS.ProcessEnv = process.env): WebPushConfig | undefined {
@@ -39,50 +31,23 @@ export function configuredWebPush(env: NodeJS.ProcessEnv = process.env): WebPush
 
 /** Generates a VAPID key pair (used by scripts/generate-vapid-keys.mjs and tests). */
 export function generateVapidKeys() {
-  const ecdh = createECDH("prime256v1");
-  ecdh.generateKeys();
-  const d = ecdh.getPrivateKey();
-  return { publicKey: b64u(ecdh.getPublicKey()), privateKey: b64u(Buffer.concat([Buffer.alloc(32 - d.length), d])) };
+  return webpush.generateVAPIDKeys();
 }
 
-function vapidKeyObject(config: WebPushConfig) {
-  const pub = unb64u(config.publicKey);
-  return createPrivateKey({
-    key: { kty: "EC", crv: "P-256", d: b64u(unb64u(config.privateKey)), x: b64u(pub.subarray(1, 33)), y: b64u(pub.subarray(33, 65)) },
-    format: "jwk",
-  });
-}
-
-export function vapidAuthorization(config: WebPushConfig, endpoint: string, now = Date.now()) {
-  const aud = new URL(endpoint).origin;
-  const header = b64u(Buffer.from(JSON.stringify({ typ: "JWT", alg: "ES256" })));
-  const claims = b64u(Buffer.from(JSON.stringify({ aud, exp: Math.floor(now / 1000) + 12 * 3600, sub: config.subject })));
-  const signature = sign("sha256", Buffer.from(header + "." + claims), { key: vapidKeyObject(config), dsaEncoding: "ieee-p1363" });
-  return `vapid t=${header}.${claims}.${b64u(signature)}, k=${config.publicKey}`;
-}
-
-const hmac = (key: Buffer, data: Buffer) => createHmac("sha256", key).update(data).digest();
-
-/** RFC 8291 message encryption with a single aes128gcm record. */
-export function encryptPayload(payload: Buffer, uaPublicB64: string, authB64: string, salt = randomBytes(16), ephemeral?: ECDH) {
-  const uaPublic = unb64u(uaPublicB64), auth = unb64u(authB64);
-  requireThat(uaPublic.length === 65 && uaPublic[0] === 4 && auth.length === 16, "invalid_push_keys", "Invalid push subscription keys.");
-  if (!ephemeral) {
-    ephemeral = createECDH("prime256v1");
-    ephemeral.generateKeys();
-  }
-  const asPublic = ephemeral.getPublicKey();
-  const secret = ephemeral.computeSecret(uaPublic);
-  const prkKey = hmac(auth, secret);
-  const ikm = hmac(prkKey, Buffer.concat([Buffer.from("WebPush: info\0"), uaPublic, asPublic, Buffer.from([1])]));
-  const prk = hmac(salt, ikm);
-  const cek = hmac(prk, Buffer.from("Content-Encoding: aes128gcm\0\x01")).subarray(0, 16);
-  const nonce = hmac(prk, Buffer.from("Content-Encoding: nonce\0\x01")).subarray(0, 12);
-  const cipher = createCipheriv("aes-128-gcm", cek, nonce);
-  const body = Buffer.concat([cipher.update(Buffer.concat([payload, Buffer.from([2])])), cipher.final(), cipher.getAuthTag()]);
-  const rs = Buffer.alloc(4);
-  rs.writeUInt32BE(4096);
-  return Buffer.concat([salt, rs, Buffer.from([asPublic.length]), asPublic, body]);
+/** Library-built request (encrypted body + VAPID headers) for one subscription. */
+export function pushRequest(config: WebPushConfig, subscription: { endpoint: string; p256dh: string; auth: string }, payload: string, topic?: string) {
+  const details = webpush.generateRequestDetails(
+    { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
+    payload,
+    {
+      vapidDetails: { subject: config.subject, publicKey: config.publicKey, privateKey: config.privateKey },
+      TTL: 86400,
+      contentEncoding: "aes128gcm",
+      urgency: "normal",
+      ...(topic ? { topic } : {}),
+    },
+  );
+  return { method: details.method, headers: details.headers as Record<string, string>, body: details.body as Buffer };
 }
 
 // Only well-known browser push services may receive server requests (SSRF guard).
@@ -152,24 +117,14 @@ export async function pushTick(db: Database, config: WebPushConfig) {
     if (!allowedPushEndpoint(d.endpoint)) state = "gone";
     else
       try {
-        const payload = Buffer.from(JSON.stringify({
+        const payload = JSON.stringify({
           title: "New from " + d.event_title,
           body: d.title + " is ready to play and download.",
           url: "/event/" + encodeURIComponent(d.slug) + "?track=" + d.release_id,
           tag: "release-" + d.release_id,
-        }));
-        const response = await send(d.endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Encoding": "aes128gcm",
-            "Content-Type": "application/octet-stream",
-            TTL: "86400",
-            Urgency: "normal",
-            Topic: "release" + String(d.release_id).replaceAll("-", "").slice(0, 24),
-            Authorization: vapidAuthorization(config, d.endpoint),
-          },
-          body: encryptPayload(payload, d.p256dh, d.auth),
         });
+        const request = pushRequest(config, d as { endpoint: string; p256dh: string; auth: string }, payload, "release" + String(d.release_id).replaceAll("-", "").slice(0, 24));
+        const response = await send(d.endpoint, request);
         if (response.status >= 200 && response.status < 300) state = "sent";
         else if (response.status === 404 || response.status === 410) state = "gone";
         else if (response.status === 413 || response.status === 400 || response.status === 403) state = "failed";
